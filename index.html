@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>🎶 Idol Categorizer</title>
+<title>Idol Categorizer</title>
 <style>
   body {
     font-family: system-ui, sans-serif;
@@ -13,9 +13,9 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    min-height: 100vh;
+    padding: 1rem;
   }
+  h1 { margin-bottom: 0.5rem; }
   img {
     max-width: 80vw;
     max-height: 60vh;
@@ -25,13 +25,13 @@
   }
   .controls {
     display: flex;
-    gap: 0.6rem;
     flex-wrap: wrap;
     justify-content: center;
+    gap: 0.5rem;
   }
   button {
     font-size: 1.1rem;
-    padding: 0.5rem 1rem;
+    padding: 0.5rem 1.25rem;
     border-radius: 0.5rem;
     border: none;
     background: #444;
@@ -40,15 +40,16 @@
     transition: background 0.2s;
   }
   button:hover { background: #666; }
-  #progress { margin-top: 1rem; opacity: 0.8; }
-  #download, #saveProgress, #commitButton, #toggleUncat {
-    margin-top: 0.8rem;
+  #progress { margin-top: 0.75rem; font-size: 0.9rem; opacity: 0.8; }
+  #saveStatus { margin-top: 0.5rem; font-size: 0.9rem; opacity: 0.7; }
+  #bottomButtons {
+    margin-top: 1.5rem;
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: center;
   }
-  #saveStatus {
-    margin-top: 0.6rem;
-    font-size: 0.9rem;
-    color: #0f0;
-  }
+  .toggle-on { background: #007bff; }
 </style>
 </head>
 <body>
@@ -57,177 +58,162 @@
 
   <div class="controls" id="categoryButtons" style="display:none;"></div>
 
-  <div class="controls">
-    <button id="prevButton">⬅ Previous</button>
-    <button id="skipButton">⏭ Skip</button>
-    <button id="saveProgress">💾 Save Progress</button>
-    <button id="commitButton">📤 Commit to Repo</button>
-    <button id="toggleUncat">🔍 Show Only Uncategorized</button>
-  </div>
-
   <div id="progress"></div>
   <div id="saveStatus"></div>
 
+  <div id="bottomButtons">
+    <button id="prevBtn">Previous</button>
+    <button id="skipBtn">Skip</button>
+    <button id="toggleUncat">Show Uncategorised Only: OFF</button>
+    <button id="saveBtn">Save Progress</button>
+  </div>
+
 <script>
-const rawUrl = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt";
-const catUrl = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/categories.txt";
+const srcRaw = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt";
+const catRaw = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_gallery_links.txt";
+const catsFile = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/categories.txt";
 
-let lines = [];
-let currentIndex = 0;
-let categorized = {};
 let categories = [];
-let uncategorized = [];
-let showOnlyUncat = false;
+let mergedLines = [];
+let currentIndex = 0;
+let uncategorizedOnly = false;
 
-// Load categories.txt dynamically
-async function loadCategories() {
+// Load categories, source, and local categorized data
+async function init() {
   try {
-    const res = await fetch(catUrl);
-    const text = await res.text();
-    categories = text.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
-  } catch {
-    categories = ["A", "B", "C", "D", "E"];
+    const [catText, srcText, localText] = await Promise.all([
+      fetch(catsFile).then(r => r.ok ? r.text() : ""),
+      fetch(srcRaw).then(r => r.text()),
+      fetch(catRaw).then(r => r.ok ? r.text() : "")
+    ]);
+
+    categories = catText.split(/\r?\n/).filter(Boolean);
+    renderCategoryButtons();
+
+    const srcLines = srcText.split(/\r?\n/).filter(l => l.trim());
+    const localLines = localText.split(/\r?\n/).filter(l => l.trim());
+
+    const localMap = new Map();
+    for (const l of localLines) {
+      const parts = l.split(",").map(x => x.trim());
+      if (parts.length >= 3) localMap.set(parts[1], parts[3] || "");
+    }
+
+    mergedLines = srcLines.map(line => {
+      const parts = line.split(",").map(x => x.trim());
+      const cat = localMap.get(parts[1]) || "";
+      return [parts[0], parts[1], parts[2], cat];
+    });
+
+    if (!mergedLines.length) {
+      document.getElementById("imageContainer").innerHTML = "<p>No images found.</p>";
+      return;
+    }
+
+    showCurrent();
+  } catch (e) {
+    document.getElementById("imageContainer").innerHTML = "<p>⚠️ Failed to load data</p>";
+    console.error(e);
   }
 }
 
-async function init() {
-  await loadCategories();
-  const res = await fetch(rawUrl);
-  const text = await res.text();
-  lines = text.split(/\r?\n/).filter(l => l.trim().length);
-
-  uncategorized = lines.map((line, i) => ({ line, i }))
-    .filter(obj => obj.line.split(",").filter(Boolean).length < 4);
-
-  loadProgress();
-  renderCategoryButtons();
-  updateUncategorizedList();
-  showCurrent();
-}
-
 function renderCategoryButtons() {
-  const container = document.getElementById("categoryButtons");
-  container.innerHTML = "";
+  const div = document.getElementById("categoryButtons");
+  div.innerHTML = "";
   categories.forEach(cat => {
     const btn = document.createElement("button");
     btn.textContent = cat;
     btn.onclick = () => handleCategory(cat);
-    container.appendChild(btn);
+    div.appendChild(btn);
   });
-  container.style.display = "flex";
-}
-
-function updateUncategorizedList() {
-  uncategorized = lines.map((line, i) => ({ line, i }))
-    .filter(obj => {
-      const parts = obj.line.split(",").filter(Boolean);
-      return parts.length < 4;
-    });
+  div.style.display = "flex";
 }
 
 function showCurrent() {
-  const activeList = showOnlyUncat ? uncategorized : lines.map((l, i) => ({ line: l, i }));
-  if (currentIndex >= activeList.length) {
+  const filtered = getFilteredList();
+  if (!filtered.length) {
     document.getElementById("imageContainer").innerHTML = "<p>✅ Categorization complete!</p>";
     document.getElementById("categoryButtons").style.display = "none";
     return;
   }
-
-  const { line } = activeList[currentIndex];
-  const parts = line.split(",").map(x => x.trim());
-  const name = parts[0];
-  const raw = parts[1];
-  const thumb = parts[2] || parts[1];
-  const cat = parts[3] || "(uncategorized)";
+  const { idx, data } = filtered[currentIndex] || filtered[0];
+  const [name, raw, thumb, cat] = data;
 
   document.getElementById("imageContainer").innerHTML = `
-    <h3>${name} — <span style="opacity:0.7">${cat}</span></h3>
+    <h3>${name}</h3>
     <img src="${raw}" alt="${name}" onerror="this.style.display='none';">
+    <p>Category: <b>${cat || "(none)"}</b></p>
   `;
-  document.getElementById("progress").textContent =
-    `Image ${currentIndex + 1} of ${activeList.length}`;
+  document.getElementById("progress").textContent = 
+    `Image ${currentIndex + 1} of ${filtered.length}`;
+}
+
+function getFilteredList() {
+  return mergedLines
+    .map((data, idx) => ({ idx, data }))
+    .filter(obj => !uncategorizedOnly || !obj.data[3]);
 }
 
 function handleCategory(cat) {
-  const activeList = showOnlyUncat ? uncategorized : lines.map((l, i) => ({ line: l, i }));
-  const { i, line } = activeList[currentIndex];
-  const parts = line.split(",").map(p => p.trim()).filter(Boolean);
-  lines[i] = `${parts[0]}, ${parts[1]}, ${parts[2] || ""}, ${cat}`;
-  categorized[i] = cat;
-  updateUncategorizedList();
-  saveProgress();
-  currentIndex++;
+  const filtered = getFilteredList();
+  if (!filtered.length) return;
+
+  const { idx } = filtered[currentIndex];
+  mergedLines[idx][3] = cat;
+
+  if (currentIndex < filtered.length - 1) {
+    currentIndex++;
+  }
   showCurrent();
 }
 
 function skipImage() {
-  currentIndex++;
+  const filtered = getFilteredList();
+  if (currentIndex < filtered.length - 1) currentIndex++;
   showCurrent();
 }
 
-function previousImage() {
+function prevImage() {
   if (currentIndex > 0) currentIndex--;
   showCurrent();
 }
 
-function toggleUncategorized() {
-  showOnlyUncat = !showOnlyUncat;
+async function saveProgress() {
+  const updated = mergedLines.map(x => x.join(", ")).join("\n");
+  document.getElementById("saveStatus").textContent = "💾 Saving...";
+
+  const response = await fetch("https://api.github.com/repos/beltedblinds/Idol-Categorizer/dispatches", {
+    method: "POST",
+    headers: {
+      "Accept": "application/vnd.github+json",
+      "Authorization": "Bearer GITHUB_TOKEN_PLACEHOLDER", // Replace manually for local testing if needed
+    },
+    body: JSON.stringify({
+      event_type: "save_categorized_links",
+      client_payload: { updated_file: updated }
+    })
+  });
+
+  if (response.ok) {
+    document.getElementById("saveStatus").textContent = "✅ Saved and committed!";
+  } else {
+    document.getElementById("saveStatus").textContent = "❌ Save failed — check token or workflow logs.";
+  }
+}
+
+function toggleUncat() {
+  uncategorizedOnly = !uncategorizedOnly;
+  document.getElementById("toggleUncat").textContent = 
+    `Show Uncategorised Only: ${uncategorizedOnly ? "ON" : "OFF"}`;
   currentIndex = 0;
-  document.getElementById("toggleUncat").textContent =
-    showOnlyUncat ? "📋 Show All" : "🔍 Show Only Uncategorized";
   showCurrent();
 }
 
-function saveProgress() {
-  localStorage.setItem("categorizedProgress", JSON.stringify({
-    lines,
-    currentIndex,
-    categorized
-  }));
-  const msgBox = document.getElementById("saveStatus");
-  msgBox.textContent = "💾 Progress saved locally.";
-  msgBox.style.color = "lightgreen";
-}
-
-function loadProgress() {
-  const saved = JSON.parse(localStorage.getItem("categorizedProgress") || "{}");
-  if (saved.lines && saved.lines.length === lines.length) {
-    lines = saved.lines;
-    categorized = saved.categorized || {};
-    currentIndex = saved.currentIndex || 0;
-  }
-}
-
-async function commitToRepo() {
-  const msgBox = document.getElementById("saveStatus");
-  const updated = btoa(unescape(encodeURIComponent(lines.join("\n"))));
-
-  const response = await fetch(
-    "https://api.github.com/repos/beltedblinds/Idol-Categorizer/dispatches",
-    {
-      method: "POST",
-      headers: { "Accept": "application/vnd.github+json" },
-      body: JSON.stringify({
-        event_type: "commit_categorized_updates",
-        client_payload: { updated_file: updated }
-      })
-    }
-  );
-
-  if (response.ok) {
-    msgBox.textContent = "✅ Commit request sent! Check Actions tab.";
-    msgBox.style.color = "lightgreen";
-  } else {
-    msgBox.textContent = "❌ Commit failed — check Actions logs.";
-    msgBox.style.color = "red";
-  }
-}
-
-document.getElementById("skipButton").onclick = skipImage;
-document.getElementById("prevButton").onclick = previousImage;
-document.getElementById("saveProgress").onclick = saveProgress;
-document.getElementById("commitButton").onclick = commitToRepo;
-document.getElementById("toggleUncat").onclick = toggleUncategorized;
+// Event bindings
+document.getElementById("skipBtn").onclick = skipImage;
+document.getElementById("prevBtn").onclick = prevImage;
+document.getElementById("saveBtn").onclick = saveProgress;
+document.getElementById("toggleUncat").onclick = toggleUncat;
 
 init();
 </script>
