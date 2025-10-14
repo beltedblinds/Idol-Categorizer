@@ -1,0 +1,23 @@
+name: Update Categorized Idol List
+
+on:
+  repository_dispatch:
+    types: [save_categorized_links]
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Idol-Categorizer repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Write updated file
+        run: |
+          echo "${{ github.event.client_payload.updated_file }}" > idol_gallery_links.txt
+          git config user.name "Idol-Categorizer Bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add idol_gallery_links.txt
+          git commit -m "Update categorized idols"
+          git push
