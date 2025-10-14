@@ -9,21 +9,18 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout idols-media-01 repo
         uses: actions/checkout@v4
+        with:
+          repository: beltedblinds/idols-media-01
+          ref: main
+          token: ${{ secrets.GH_TOKEN }}
 
-      - name: Commit updated idol_gallery_links.txt to idols-media-01
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      - name: Update idol_gallery_links.txt
         run: |
           echo "${{ github.event.client_payload.updated_file }}" > idol_gallery_links.txt
           git config user.name "Idol-Categorizer Bot"
           git config user.email "bot@users.noreply.github.com"
-          git init
-          git remote add origin https://github.com/beltedblinds/idols-media-01.git
-          git fetch origin main
-          git checkout main
-          cp idol_gallery_links.txt idol_gallery_links.txt
           git add idol_gallery_links.txt
-          git commit -m "Auto-update categorized idols"
-          git push https://x-access-token:${GH_TOKEN}@github.com/beltedblinds/idols-media-01.git main
+          git commit -m "Auto-update categorized idols" || echo "No changes"
+          git push
