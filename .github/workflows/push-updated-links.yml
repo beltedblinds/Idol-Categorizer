@@ -1,26 +1,21 @@
-name: Push Updated Idol List
+name: Receive Categorizer Update Request
 
 on:
-  workflow_dispatch:
   repository_dispatch:
-    types: [update_links]
+    types: [commit_categorized_updates]
 
 jobs:
-  update:
+  forward:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout idols-media-01 repo
-        uses: actions/checkout@v4
-        with:
-          repository: beltedblinds/idols-media-01
-          ref: main
-          token: ${{ secrets.GH_TOKEN }}
-
-      - name: Decode and update idol_gallery_links.txt
+      - name: Forward categorized file to Push workflow
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
+          echo "🚀 Forwarding categorized update to push-updated-links.yml"
           echo "${{ github.event.client_payload.updated_file }}" | base64 --decode > idol_gallery_links.txt
-          git config user.name "Idol-Categorizer Bot"
-          git config user.email "bot@users.noreply.github.com"
-          git add idol_gallery_links.txt
-          git commit -m "Auto-update categorized idols" || echo "No changes to commit"
-          git push origin main
+
+          gh api repos/beltedblinds/Idol-Categorizer/dispatches \
+            -f event_type=update_links \
+            -f client_payload="$(jq -n --arg updated_file "${{ github.event.client_payload.updated_file }}" '{updated_file:$updated_file}')" \
+            -H "Authorization: token $GH_TOKEN"
