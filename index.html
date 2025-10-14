@@ -13,9 +13,11 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    height: 100vh;
+    justify-content: flex-start;
+    min-height: 100vh;
+    padding: 1rem;
   }
+  h1 { margin-bottom: 0.5rem; }
   img {
     max-width: 80vw;
     max-height: 60vh;
@@ -25,13 +27,14 @@
   }
   .controls {
     display: flex;
-    gap: 1rem;
     flex-wrap: wrap;
+    gap: 0.5rem;
     justify-content: center;
+    margin-bottom: 1rem;
   }
   button {
     font-size: 1.1rem;
-    padding: 0.5rem 1.25rem;
+    padding: 0.5rem 1rem;
     border-radius: 0.5rem;
     border: none;
     background: #444;
@@ -40,23 +43,17 @@
     transition: background 0.2s;
   }
   button:hover { background: #666; }
-  #progress {
-    margin-top: 1rem;
-    font-size: 0.9rem;
-    opacity: 0.8;
+  #progress { margin-top: 0.5rem; font-size: 0.9rem; opacity: 0.8; }
+  #status { margin-top: 0.75rem; font-size: 0.9rem; }
+  #download, #commitBtn, #uncatToggle, #saveProgress, #prevBtn, #skipBtn {
+    margin-top: 0.25rem;
   }
-  #status {
-    margin-top: 0.5rem;
-    font-size: 0.9rem;
-  }
-  #download {
-    margin-top: 1rem;
-    background: #28a745;
-    display: none;
-  }
-  #toggleUncat.active {
-    background: #007bff;
-  }
+  #download { background: #28a745; }
+  #commitBtn { background: #1e90ff; }
+  #saveProgress { background: #888; }
+  #prevBtn { background: #555; }
+  #skipBtn { background: #aa5500; }
+  #uncatToggle.active { background: #d32f2f; }
 </style>
 </head>
 <body>
@@ -65,98 +62,105 @@
 
   <div class="controls" id="categoryButtons" style="display:none;"></div>
 
-  <div class="controls" id="navButtons" style="display:none;">
-    <button id="prev">⬅️ Previous</button>
-    <button id="skip">⏭️ Skip</button>
-    <button id="toggleUncat">🔍 Show Only Uncategorized</button>
-    <button id="save">💾 Save Progress</button>
-    <button id="commit">🚀 Commit to Repo</button>
+  <div class="controls">
+    <button id="prevBtn">⬅️ Previous</button>
+    <button id="skipBtn">⏭️ Skip</button>
+    <button id="saveProgress">💾 Save Progress</button>
+    <button id="commitBtn">🚀 Commit to Repo</button>
+    <button id="uncatToggle">🌀 Show Uncat Only</button>
   </div>
 
   <div id="progress"></div>
   <div id="status"></div>
 
 <script>
-const rawUrl = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt";
-const categoriesUrl = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/categories.txt";
+const RAW_FILE = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt";
+const CATS_FILE = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/categories.txt";
+
 let lines = [];
-let viewList = [];
 let currentIndex = 0;
-let showOnlyUncat = false;
+let categorized = {};
+let uncategorized = [];
+let categories = [];
+let showUncatOnly = false;
 
 async function init() {
-  const [linksRes, catRes] = await Promise.all([fetch(rawUrl), fetch(categoriesUrl)]);
-  const linksText = await linksRes.text();
-  const catText = await catRes.text();
+  const [linksRes, catsRes] = await Promise.all([fetch(RAW_FILE), fetch(CATS_FILE)]);
+  const text = await linksRes.text();
+  const catsText = await catsRes.text();
 
-  lines = linksText.split(/\r?\n/).filter(l => l.trim().length);
-  const categories = catText.split(/\r?\n/).map(c => c.trim()).filter(Boolean);
+  categories = catsText.split(/\r?\n/).map(c => c.trim()).filter(Boolean);
 
-  const catContainer = document.getElementById("categoryButtons");
-  catContainer.innerHTML = categories.map(cat => `<button data-cat="${cat}">${cat}</button>`).join("");
-  catContainer.style.display = "flex";
+  lines = text.split(/\r?\n/).filter(l => l.trim().length);
+  updateUncategorizedList();
+  loadProgress();
+
+  if (!lines.length) {
+    document.getElementById("imageContainer").innerHTML = "<p>No images found.</p>";
+    return;
+  }
+
+  renderCategoryButtons();
+  showCurrent();
+}
+
+function updateUncategorizedList() {
+  uncategorized = lines.map((line, i) => ({ line, i }))
+    .filter(obj => obj.line.split(",").filter(Boolean).length < 4);
+}
+
+function renderCategoryButtons() {
+  const div = document.getElementById("categoryButtons");
+  div.innerHTML = categories.map(cat => `<button data-cat="${cat}">${cat}</button>`).join("");
+  div.style.display = "flex";
 
   document.querySelectorAll("button[data-cat]").forEach(btn =>
     btn.addEventListener("click", () => handleCategory(btn.dataset.cat))
   );
-
-  document.getElementById("skip").addEventListener("click", nextImage);
-  document.getElementById("prev").addEventListener("click", prevImage);
-  document.getElementById("save").addEventListener("click", saveProgress);
-  document.getElementById("commit").addEventListener("click", commitToRepo);
-  document.getElementById("toggleUncat").addEventListener("click", toggleUncategorized);
-
-  loadProgress();
-  rebuildViewList();
-  jumpToFirstUncategorized();
-  showCurrent();
-  document.getElementById("navButtons").style.display = "flex";
-}
-
-function rebuildViewList() {
-  viewList = showOnlyUncat
-    ? lines.map((line, i) => ({ line, i })).filter(obj => {
-        const parts = obj.line.split(",").map(x => x.trim());
-        return parts.length < 4 || !parts[3];
-      })
-    : lines.map((line, i) => ({ line, i }));
 }
 
 function showCurrent() {
-  if (currentIndex < 0) currentIndex = 0;
-  if (currentIndex >= viewList.length) {
+  const visibleList = showUncatOnly ? uncategorized : lines.map((line, i) => ({ line, i }));
+  if (currentIndex >= visibleList.length) {
     document.getElementById("imageContainer").innerHTML = "<p>✅ Categorization complete!</p>";
     document.getElementById("categoryButtons").style.display = "none";
     return;
   }
 
-  const { i } = viewList[currentIndex];
-  const parts = lines[i].split(",").map(x => x.trim());
+  const { line, i } = visibleList[currentIndex];
+  const parts = line.split(",").map(x => x.trim());
   const name = parts[0];
-  const raw = parts[1];
-  const thumb = parts[2];
-  const category = parts[3] || "";
+  const rawUrl = parts[1];
+  const currentCat = parts[3] || "(none)";
 
   document.getElementById("imageContainer").innerHTML = `
     <h3>${name}</h3>
-    <img src="${raw}" alt="${name}" onerror="this.src='${thumb}'">
-    <p>${category ? `Current category: <strong>${category}</strong>` : `<em>Uncategorized</em>`}</p>
+    <img src="${rawUrl}" alt="${name}" onerror="this.style.display='none';">
+    <p>Category: <strong>${currentCat}</strong></p>
   `;
-  document.getElementById("progress").textContent = `Image ${currentIndex + 1} of ${viewList.length}`;
+  document.getElementById("progress").textContent =
+    `Image ${currentIndex + 1} of ${visibleList.length}`;
 }
 
 function handleCategory(cat) {
-  const { i } = viewList[currentIndex];
-  const parts = lines[i].split(",").map(x => x.trim());
-  while (parts.length < 4) parts.push("");
-  parts[3] = cat;
-  lines[i] = parts.join(", ");
+  const visibleList = showUncatOnly ? uncategorized : lines.map((line, i) => ({ line, i }));
+  if (currentIndex >= visibleList.length) return;
+
+  const { i, line } = visibleList[currentIndex];
+  const parts = line.split(",").map(p => p.trim());
+  if (parts.length >= 3) {
+    lines[i] = `${parts[0]}, ${parts[1]}, ${parts[2]}, ${cat}`;
+  } else {
+    lines[i] = line + `, ${cat}`;
+  }
+  categorized[i] = cat;
+  updateUncategorizedList();
+  currentIndex++;
   saveProgress(false);
-  rebuildViewList(); // refresh uncategorized filter
-  nextImage();       // ✅ move automatically to the next image
+  showCurrent();
 }
 
-function nextImage() {
+function skipImage() {
   currentIndex++;
   showCurrent();
 }
@@ -168,59 +172,39 @@ function prevImage() {
   }
 }
 
-function toggleUncategorized() {
-  showOnlyUncat = !showOnlyUncat;
-  const btn = document.getElementById("toggleUncat");
-  btn.classList.toggle("active", showOnlyUncat);
-  btn.textContent = showOnlyUncat ? "📋 Show All" : "🔍 Show Only Uncategorized";
-  rebuildViewList();
+function toggleUncat() {
+  showUncatOnly = !showUncatOnly;
+  document.getElementById("uncatToggle").classList.toggle("active", showUncatOnly);
   currentIndex = 0;
   showCurrent();
 }
 
-function jumpToFirstUncategorized() {
-  const idx = lines.findIndex(line => {
-    const parts = line.split(",").map(x => x.trim());
-    return parts.length < 4 || !parts[3];
-  });
-  if (idx !== -1) {
-    const viewIdx = viewList.findIndex(obj => obj.i === idx);
-    if (viewIdx !== -1) currentIndex = viewIdx;
-  }
-}
-
 function saveProgress(showMsg = true) {
-  localStorage.setItem("categorizedProgress", JSON.stringify({ lines, currentIndex, showOnlyUncat }));
-  if (showMsg) {
-    const status = document.getElementById("status");
-    status.textContent = "💾 Progress saved locally!";
-    status.style.color = "#0f0";
-    setTimeout(() => status.textContent = "", 2000);
-  }
+  localStorage.setItem("categorizedProgress", JSON.stringify({
+    lines, currentIndex, categorized
+  }));
+  if (showMsg) showStatus("💾 Progress saved locally!");
 }
 
 function loadProgress() {
   const saved = JSON.parse(localStorage.getItem("categorizedProgress") || "{}");
   if (saved.lines && saved.lines.length === lines.length) {
     lines = saved.lines;
-    showOnlyUncat = saved.showOnlyUncat || false;
+    categorized = saved.categorized;
+    currentIndex = saved.currentIndex || 0;
   }
 }
 
 async function commitToRepo() {
-  saveProgress(false);
+  showStatus("⏳ Sending updated file to GitHub...");
   const updated = lines.join("\n");
-  const status = document.getElementById("status");
-  status.textContent = "⏳ Committing to repo...";
-  status.style.color = "#ffa500";
-
   const response = await fetch(
     "https://api.github.com/repos/beltedblinds/Idol-Categorizer/dispatches",
     {
       method: "POST",
       headers: {
         "Accept": "application/vnd.github+json",
-        "Authorization": "Bearer GITHUB_TOKEN_PLACEHOLDER",
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
         event_type: "update_links",
@@ -230,15 +214,25 @@ async function commitToRepo() {
   );
 
   if (response.ok) {
-    status.textContent = "✅ Commit sent to idols-media-01!";
-    status.style.color = "#0f0";
+    showStatus("✅ Commit dispatched! idols-media-01 will update shortly.");
   } else {
-    status.textContent = "❌ Commit failed — check token or workflow logs.";
-    status.style.color = "#f00";
+    showStatus("❌ Commit failed — check workflow logs or GH_TOKEN permissions.");
   }
-
-  setTimeout(() => status.textContent = "", 4000);
 }
+
+function showStatus(msg) {
+  const el = document.getElementById("status");
+  el.textContent = msg;
+  el.style.opacity = 1;
+  setTimeout(() => (el.style.opacity = 0.7), 3000);
+}
+
+// button listeners
+document.getElementById("saveProgress").onclick = () => saveProgress(true);
+document.getElementById("commitBtn").onclick = commitToRepo;
+document.getElementById("prevBtn").onclick = prevImage;
+document.getElementById("skipBtn").onclick = skipImage;
+document.getElementById("uncatToggle").onclick = toggleUncat;
 
 init();
 </script>
