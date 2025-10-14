@@ -1,145 +1,187 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>🎶 Idol Categorizer</title>
-  <style>
-    body { font-family: sans-serif; background: #111; color: #fff; text-align: center; }
-    img { max-width: 400px; border-radius: 10px; margin: 20px; }
-    button { margin: 5px; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; }
-    .category-btn { background: #333; color: #fff; }
-    .category-btn:hover { background: #555; }
-    .control-btn { background: #0066ff; color: white; }
-    #saveStatus { margin-top: 15px; font-size: 0.9rem; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>🎶 Idol Categorizer</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    background: #111;
+    color: #eee;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+  }
+  h1 { margin: 20px 0; }
+  img {
+    max-width: 80%;
+    height: auto;
+    border-radius: 10px;
+    margin-top: 20px;
+  }
+  .buttons {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 20px;
+    gap: 10px;
+  }
+  button {
+    background: #333;
+    border: none;
+    color: white;
+    padding: 10px 15px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  button:hover {
+    background: #555;
+  }
+  #status {
+    margin-top: 15px;
+    font-size: 14px;
+  }
+</style>
 </head>
 <body>
-  <h1>🎶 Idol Categorizer</h1>
-  <p id="progress"></p>
-  <img id="idolImage" src="" alt="Idol image">
-  <div id="categoryButtons"></div>
+<h1>🎶 Idol Categorizer</h1>
+<p id="status">Loading idol data...</p>
+<img id="idolImage" src="" alt="Idol" hidden />
 
-  <div>
-    <button class="control-btn" onclick="previousImage()">Previous</button>
-    <button class="control-btn" onclick="skipImage()">Skip</button>
-    <button class="control-btn" onclick="toggleUncategorized()">Show Uncat Only</button>
-    <button class="control-btn" onclick="saveProgress()">Save Progress</button>
-  </div>
-  <p id="saveStatus"></p>
+<div class="buttons" id="categoryButtons"></div>
 
-  <script>
-    let allLines = [];
-    let categorized = {};
-    let currentIndex = 0;
-    let showUncatOnly = false;
-    let categories = [];
-    let filtered = [];
+<div class="buttons">
+  <button id="skipButton">⏭ Skip</button>
+  <button id="prevButton">⬅ Previous</button>
+  <button id="saveButton">💾 Save Categorized File</button>
+</div>
 
-    async function loadData() {
-      const [mainTxt, catTxt, catList] = await Promise.all([
-        fetch("https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt").then(r => r.text()),
-        fetch("idol_gallery_links.txt").then(r => r.ok ? r.text() : ""),
-        fetch("categories.txt").then(r => r.text())
-      ]);
+<script>
+const idolsMediaRepo = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt";
+const categorizerRepo = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_gallery_links.txt";
+const repoOwner = "beltedblinds";
+const repoName = "Idol-Categorizer";
 
-      categories = catList.split("\n").map(c => c.trim()).filter(Boolean);
-      allLines = mainTxt.split("\n").filter(Boolean).map(l => l.split(",").map(x => x.trim()));
+let idolData = [];
+let currentIndex = 0;
+let categories = [];
+let categorizedData = [];
 
-      if (catTxt) {
-        catTxt.split("\n").forEach(line => {
-          const parts = line.split(",").map(x => x.trim());
-          if (parts.length >= 4) categorized[parts[1]] = parts[3];
-        });
-      }
+// ✅ Fetch categories from local file
+async function loadCategories() {
+  const res = await fetch("categories.txt");
+  const text = await res.text();
+  categories = text.split("\n").map(x => x.trim()).filter(Boolean);
+  const container = document.getElementById("categoryButtons");
+  container.innerHTML = "";
+  categories.forEach(cat => {
+    const btn = document.createElement("button");
+    btn.textContent = cat;
+    btn.onclick = () => categorize(cat);
+    container.appendChild(btn);
+  });
+}
 
-      refreshFiltered();
-      setupCategoryButtons();
-      showImage();
-    }
+// ✅ Load both idol files and merge them
+async function loadData() {
+  document.getElementById("status").textContent = "Loading data...";
+  const [mediaText, catText] = await Promise.all([
+    fetch(idolsMediaRepo).then(r => r.text()).catch(() => ""),
+    fetch(categorizerRepo).then(r => r.text()).catch(() => "")
+  ]);
 
-    function refreshFiltered() {
-      filtered = allLines.filter(l => {
-        const raw = l[1];
-        if (showUncatOnly) return !categorized[raw];
-        return true;
-      });
-    }
+  const mediaLines = mediaText.split("\n").filter(x => x.trim());
+  const catLines = catText.split("\n").filter(x => x.trim());
+  const catMap = new Map(catLines.map(line => {
+    const [name, raw, thumb, cat] = line.split(",").map(v => v.trim());
+    return [raw, { name, raw, thumb, cat }];
+  }));
 
-    function setupCategoryButtons() {
-      const container = document.getElementById("categoryButtons");
-      container.innerHTML = "";
-      categories.forEach(cat => {
-        const b = document.createElement("button");
-        b.textContent = cat;
-        b.className = "category-btn";
-        b.onclick = () => assignCategory(cat);
-        container.appendChild(b);
-      });
-    }
+  idolData = mediaLines.map(line => {
+    const [name, raw, thumb] = line.split(",").map(v => v.trim());
+    const existing = catMap.get(raw);
+    return { name, raw, thumb, cat: existing ? existing.cat : "" };
+  });
 
-    function showImage() {
-      if (filtered.length === 0) {
-        document.getElementById("idolImage").src = "";
-        document.getElementById("progress").textContent = "🎉 All categorized!";
-        return;
-      }
+  categorizedData = idolData.map(x => ({ ...x }));
+  document.getElementById("status").textContent = "Ready!";
+  showImage();
+}
 
-      const [name, raw, thumb] = filtered[currentIndex];
-      document.getElementById("idolImage").src = raw;
-      document.getElementById("progress").textContent =
-        `${currentIndex + 1}/${filtered.length} — ${name}`;
-    }
+// ✅ Display current image
+function showImage() {
+  const img = document.getElementById("idolImage");
+  const status = document.getElementById("status");
 
-    function assignCategory(cat) {
-      const [name, raw, thumb] = filtered[currentIndex];
-      categorized[raw] = cat;
-      nextImage();
-    }
+  if (currentIndex >= idolData.length) {
+    img.hidden = true;
+    status.textContent = "🎉 Categorization complete!";
+    return;
+  }
 
-    function skipImage() {
-      nextImage();
-    }
+  const item = idolData[currentIndex];
+  img.src = item.raw;
+  img.hidden = false;
+  status.textContent = `${item.name} (${currentIndex + 1}/${idolData.length}) — Category: ${item.cat || "None"}`;
+}
 
-    function previousImage() {
-      if (currentIndex > 0) currentIndex--;
-      showImage();
-    }
+// ✅ Assign category
+function categorize(cat) {
+  idolData[currentIndex].cat = cat;
+  categorizedData[currentIndex] = { ...idolData[currentIndex] };
+  currentIndex++;
+  showImage();
+}
 
-    function nextImage() {
-      currentIndex++;
-      if (currentIndex >= filtered.length) {
-        currentIndex = filtered.length - 1;
-        document.getElementById("progress").textContent = "🎉 Categorization complete!";
-      }
-      showImage();
-    }
+// ✅ Skip image
+document.getElementById("skipButton").onclick = () => {
+  currentIndex++;
+  showImage();
+};
 
-    function toggleUncategorized() {
-      showUncatOnly = !showUncatOnly;
-      refreshFiltered();
-      currentIndex = 0;
-      showImage();
-    }
+// ✅ Previous image
+document.getElementById("prevButton").onclick = () => {
+  if (currentIndex > 0) currentIndex--;
+  showImage();
+};
 
-    async function saveProgress() {
-      const out = allLines.map(l => {
-        const raw = l[1];
-        const cat = categorized[raw] || "";
-        return [...l.slice(0, 3), cat].join(", ");
-      }).join("\n");
+// ✅ Save categorized file
+document.getElementById("saveButton").onclick = async () => {
+  const status = document.getElementById("status");
+  status.textContent = "⏳ Saving...";
+  const output = categorizedData.map(x => `${x.name}, ${x.raw}, ${x.thumb}, ${x.cat || ""}`).join("\n");
 
-      const blob = new Blob([out], { type: "text/plain" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "idol_gallery_links.txt";
-      link.click();
-      URL.revokeObjectURL(link.href);
+  const res = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/dispatches`, {
+    method: "POST",
+    headers: {
+      "Accept": "application/vnd.github+json",
+      "Authorization": `Bearer ${await getGithubToken()}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      event_type: "update_categorized_links",
+      client_payload: { updated_file: output }
+    })
+  });
 
-      document.getElementById("saveStatus").textContent =
-        "✅ Saved locally — upload this file to your Idol-Categorizer repo.";
-    }
+  if (res.ok) {
+    status.textContent = "✅ File saved and committed to repo!";
+  } else {
+    status.textContent = "❌ Save failed — check workflow logs.";
+  }
+};
 
-    loadData();
-  </script>
+// 🧩 Helper to get token from local dev storage if running locally
+async function getGithubToken() {
+  return localStorage.getItem("GH_TOKEN") || "";
+}
+
+(async () => {
+  await loadCategories();
+  await loadData();
+})();
+</script>
 </body>
 </html>
