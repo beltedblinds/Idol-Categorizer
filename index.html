@@ -25,12 +25,12 @@
   }
   .controls {
     display: flex;
-    flex-wrap: wrap;
     gap: 1rem;
+    flex-wrap: wrap;
     justify-content: center;
   }
   button {
-    font-size: 1.1rem;
+    font-size: 1.25rem;
     padding: 0.5rem 1.25rem;
     border-radius: 0.5rem;
     border: none;
@@ -48,11 +48,9 @@
   #download, #saveProgress {
     margin-top: 1.5rem;
     display: none;
-    background: #28a745;
   }
-  #saveProgress {
-    background: #007bff;
-  }
+  #download { background: #28a745; }
+  #saveProgress { background: #007bff; }
 </style>
 </head>
 <body>
@@ -60,62 +58,63 @@
   <div id="imageContainer"><p>Loading images...</p></div>
   <div class="controls" id="categoryButtons" style="display:none;"></div>
   <div id="progress"></div>
-  <button id="saveProgress">💾 Save Progress to Repo</button>
-  <button id="download">Download Updated File</button>
+  <div class="controls">
+    <button id="skip">Skip</button>
+    <button id="saveProgress">Save Progress</button>
+    <button id="download">Download Updated File</button>
+  </div>
 
 <script>
 const rawUrl = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt";
-const categoryUrl = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/categories.txt";
+const categoriesUrl = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/categories.txt";
 
 let lines = [];
+let uncategorized = [];
 let currentIndex = 0;
 let categorized = {};
-let uncategorized = [];
 let categories = [];
 
+// Initialize app
 async function init() {
-  // Load categories from categories.txt
-  const catRes = await fetch(categoryUrl);
-  const catText = await catRes.text();
-  categories = catText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  try {
+    const [catRes, txtRes] = await Promise.all([fetch(categoriesUrl), fetch(rawUrl)]);
+    categories = (await catRes.text()).split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+    const text = await txtRes.text();
+    lines = text.split(/\r?\n/).filter(l => l.trim().length);
 
-  const res = await fetch(rawUrl);
-  const text = await res.text();
-  lines = text.split(/\r?\n/).filter(l => l.trim().length);
+    // Identify only lines with missing or empty category
+    uncategorized = lines
+      .map((line, i) => ({ line, i }))
+      .filter(obj => {
+        const parts = obj.line.split(",").map(x => x.trim());
+        return parts.length < 4 || !parts[3];
+      });
 
-  uncategorized = lines
-    .map((line, i) => ({ line, i }))
-    .filter(obj => obj.line.split(",").filter(Boolean).length < 4);
+    if (!uncategorized.length) {
+      document.getElementById("imageContainer").innerHTML = "<p>All images are already categorized 🎉</p>";
+      return;
+    }
 
-  if (!uncategorized.length) {
-    document.getElementById("imageContainer").innerHTML = "<p>All images are already categorized 🎉</p>";
-    return;
+    createCategoryButtons();
+    loadProgress();
+    showCurrent();
+    document.getElementById("categoryButtons").style.display = "flex";
+    document.getElementById("saveProgress").style.display = "inline-block";
+  } catch (e) {
+    document.getElementById("imageContainer").innerHTML = `<p>❌ Failed to load data: ${e.message}</p>`;
   }
-
-  renderCategoryButtons();
-  loadProgress();
-  showCurrent();
-  document.getElementById("categoryButtons").style.display = "flex";
-  document.getElementById("saveProgress").style.display = "inline-block";
 }
 
-function renderCategoryButtons() {
+function createCategoryButtons() {
   const container = document.getElementById("categoryButtons");
   container.innerHTML = "";
   categories.forEach(cat => {
     const btn = document.createElement("button");
     btn.textContent = cat;
     btn.dataset.cat = cat;
-    btn.onclick = () => handleCategory(cat);
+    btn.addEventListener("click", () => handleCategory(cat));
     container.appendChild(btn);
   });
-
-  // Add skip button
-  const skipBtn = document.createElement("button");
-  skipBtn.textContent = "⏭️ Skip";
-  skipBtn.style.background = "#888";
-  skipBtn.onclick = skipImage;
-  container.appendChild(skipBtn);
 }
 
 function showCurrent() {
@@ -123,6 +122,7 @@ function showCurrent() {
     document.getElementById("imageContainer").innerHTML = "<p>✅ Categorization complete!</p>";
     document.getElementById("categoryButtons").style.display = "none";
     document.getElementById("download").style.display = "inline-block";
+    updateFile();
     return;
   }
 
@@ -154,18 +154,19 @@ function handleCategory(cat) {
 
   categorized[i] = cat;
   currentIndex++;
-  saveLocalProgress();
+  saveProgress();
   showCurrent();
 }
 
-function skipImage() {
+function handleSkip() {
   currentIndex++;
-  saveLocalProgress();
+  saveProgress();
   showCurrent();
 }
 
-async function pushToRepo() {
+async function updateFile() {
   const updated = lines.join("\n");
+
   const response = await fetch(
     "https://api.github.com/repos/beltedblinds/Idol-Categorizer/dispatches",
     {
@@ -182,13 +183,13 @@ async function pushToRepo() {
   );
 
   if (response.ok) {
-    alert("✅ Progress saved — idols-media-01 will update soon!");
+    alert("✅ Updated file sent to GitHub — the main repo will update shortly!");
   } else {
-    alert("❌ Save failed. Check your GH_TOKEN or permissions.");
+    alert("❌ Failed to send update. Check your GH_TOKEN or permissions.");
   }
 }
 
-function saveLocalProgress() {
+function saveProgress() {
   localStorage.setItem("categorizedProgress", JSON.stringify({
     lines,
     currentIndex,
@@ -201,14 +202,19 @@ function loadProgress() {
   if (saved.lines && saved.lines.length === lines.length) {
     lines = saved.lines;
     categorized = saved.categorized;
-    currentIndex = saved.currentIndex;
+    currentIndex = saved.currentIndex || 0;
     uncategorized = lines
       .map((line, i) => ({ line, i }))
-      .filter(obj => obj.line.split(",").filter(Boolean).length < 4);
+      .filter(obj => {
+        const parts = obj.line.split(",").map(x => x.trim());
+        return parts.length < 4 || !parts[3];
+      });
   }
 }
 
-document.getElementById("saveProgress").addEventListener("click", pushToRepo);
+document.getElementById("skip").addEventListener("click", handleSkip);
+document.getElementById("saveProgress").addEventListener("click", saveProgress);
+
 init();
 </script>
 </body>
