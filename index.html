@@ -132,14 +132,31 @@ function handleCategory(cat) {
   showCurrent();
 }
 
-function updateFile() {
+async function updateFile() {
   const updated = lines.join("\n");
-  const blob = new Blob([updated], { type: "text/plain" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "idol_gallery_links.txt";
-  document.getElementById("download").onclick = () => a.click();
+
+  const response = await fetch(
+    "https://api.github.com/repos/beltedblinds/Idol-Categorizer/dispatches",
+    {
+      method: "POST",
+      headers: {
+        "Accept": "application/vnd.github+json",
+        "Authorization": "Bearer GITHUB_TOKEN_PLACEHOLDER",
+      },
+      body: JSON.stringify({
+        event_type: "update_links",
+        client_payload: { updated_file: updated }
+      })
+    }
+  );
+
+  if (response.ok) {
+    alert("✅ Updated file sent to GitHub — the main repo will update shortly!");
+  } else {
+    alert("❌ Failed to send update. Check your GH_TOKEN or permissions.");
+  }
 }
+
 
 function saveProgress() {
   localStorage.setItem("categorizedProgress", JSON.stringify({
