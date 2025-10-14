@@ -64,12 +64,108 @@
   <button id="download">Download Updated File</button>
 
 <script>
-const RAW_URL = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt";
+const rawUrl = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt";
 let lines = [];
-let uncategorized = [];
 let currentIndex = 0;
 let categorized = {};
+let uncategorized = [];
 
 async function init() {
-  const res = await fetch(RAW_URL);
+  const res = await fetch(rawUrl);
   const text = await res.text();
+  lines = text.split(/\r?\n/).filter(l => l.trim().length);
+
+  // Identify only lines with fewer than 4 valid fields
+  uncategorized = lines
+    .map((line, i) => ({ line, i }))
+    .filter(obj => obj.line.split(",").filter(Boolean).length < 4);
+
+  if (!uncategorized.length) {
+    document.getElementById("imageContainer").innerHTML = "<p>All images are already categorized 🎉</p>";
+    return;
+  }
+
+  loadProgress();
+  showCurrent();
+  document.getElementById("categoryButtons").style.display = "flex";
+}
+
+function showCurrent() {
+  if (currentIndex >= uncategorized.length) {
+    document.getElementById("imageContainer").innerHTML = "<p>✅ Categorization complete!</p>";
+    document.getElementById("categoryButtons").style.display = "none";
+    document.getElementById("download").style.display = "inline-block";
+    updateFile();
+    return;
+  }
+
+  const { line } = uncategorized[currentIndex];
+  const parts = line.split(",").map(x => x.trim());
+  const name = parts[0];
+  const thumb = parts[2] || parts[1];
+
+  document.getElementById("imageContainer").innerHTML = `
+    <h3>${name}</h3>
+    <img src="${thumb}" alt="${name}" onerror="this.style.display='none';">
+  `;
+  document.getElementById("progress").textContent =
+    `Image ${currentIndex + 1} of ${uncategorized.length}`;
+}
+
+function handleCategory(cat) {
+  const obj = uncategorized[currentIndex];
+  const { i, line } = obj;
+  const parts = line.split(",").map(p => p.trim()).filter(Boolean);
+
+  // Ensure we only add the category once
+  if (parts.length === 3) {
+    lines[i] = `${parts[0]}, ${parts[1]}, ${parts[2]}, ${cat}`;
+  } else if (parts.length === 2) {
+    lines[i] = `${parts[0]}, ${parts[1]}, , ${cat}`;
+  } else {
+    lines[i] = line + `, ${cat}`;
+  }
+
+  categorized[i] = cat;
+  currentIndex++;
+  saveProgress();
+  showCurrent();
+}
+
+function updateFile() {
+  const updated = lines.join("\n");
+  const blob = new Blob([updated], { type: "text/plain" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "idol_gallery_links.txt";
+  document.getElementById("download").onclick = () => a.click();
+}
+
+function saveProgress() {
+  localStorage.setItem("categorizedProgress", JSON.stringify({
+    lines,
+    currentIndex,
+    categorized
+  }));
+}
+
+function loadProgress() {
+  const saved = JSON.parse(localStorage.getItem("categorizedProgress") || "{}");
+  if (saved.lines && saved.lines.length === lines.length) {
+    lines = saved.lines;
+    categorized = saved.categorized;
+    currentIndex = saved.currentIndex;
+    uncategorized = lines
+      .map((line, i) => ({ line, i }))
+      .filter(obj => obj.line.split(",").filter(Boolean).length < 4);
+  }
+}
+
+document.querySelectorAll("button[data-cat]").forEach(btn =>
+  btn.addEventListener("click", () => handleCategory(btn.dataset.cat))
+);
+
+init();
+</script>
+</body>
+</html>
