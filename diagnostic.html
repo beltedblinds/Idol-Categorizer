@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>GitHub Token Diagnostic</title>
+</head>
+<body style="font-family:sans-serif; padding:20px;">
+<h2>🔍 GH_TOKEN Diagnostic Test</h2>
+<p>Click below to test your GitHub Action connection:</p>
+<button id="testBtn">Run Dispatch Test</button>
+<p id="status"></p>
+
+<script>
+document.getElementById('testBtn').onclick = async () => {
+  const status = document.getElementById('status');
+  status.textContent = "Sending test dispatch...";
+  try {
+    const response = await fetch('https://api.github.com/repos/beltedblinds/idol-categorizer/dispatches', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/vnd.github.everest-preview+json',
+        'Authorization': 'token ' + prompt('Enter your GH_TOKEN (temporary for this test):'),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        event_type: 'test_dispatch'
+      })
+    });
+
+    if (response.ok) {
+      status.textContent = "✅ Dispatch sent successfully! Check Actions tab in your repo.";
+    } else {
+      const text = await response.text();
+      status.textContent = "❌ Failed: " + text;
+    }
+  } catch (err) {
+    status.textContent = "❌ Error: " + err;
+  }
+};
+</script>
+</body>
+</html>
