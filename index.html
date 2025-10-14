@@ -31,16 +31,16 @@
     margin-bottom: 1rem;
   }
   button {
-    font-size: 1rem;
-    padding: 0.4rem 1rem;
-    border-radius: 0.5rem;
+    font-size: 1.2rem; /* bigger text */
+    padding: 0.7rem 1.5rem; /* more touch area */
+    border-radius: 0.75rem;
     border: none;
     background: #333;
     color: white;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background 0.2s, transform 0.1s;
   }
-  button:hover { background: #666; }
+  button:hover { background: #666; transform: scale(1.03); }
   #progress {
     margin-top: 0.5rem;
     font-size: 0.9rem;
@@ -101,10 +101,8 @@ async function init() {
   const remote = remoteText.split(/\r?\n/).filter(Boolean);
   const local = localText.split(/\r?\n/).filter(Boolean);
 
-  // Normalize URLs to ensure matching works even with small differences
   const normalize = str => str.replace(/\s+/g, "").replace("github.com", "raw.githubusercontent.com");
 
-  // Map of existing categorized entries by normalized image URL
   const localMap = new Map(
     local.map(line => {
       const parts = line.split(",").map(x => x.trim());
@@ -113,22 +111,29 @@ async function init() {
   );
 
   const merged = [];
-
   for (const line of remote) {
     const parts = line.split(",").map(x => x.trim());
     const [name, url, thumb, cat] = parts;
     const key = normalize(url);
 
     if (localMap.has(key)) {
-      merged.push(localMap.get(key)); // keep categorized version
+      merged.push(localMap.get(key));
     } else {
-      merged.push(`${name}, ${url}, ${thumb}, ${cat || ""}`); // new uncategorized
+      merged.push(`${name}, ${url}, ${thumb}, ${cat || ""}`);
     }
   }
 
   allLines = merged;
   categories = catsText.split(/\r?\n/).filter(Boolean);
   renderCategoryButtons();
+
+  // Automatically start at first uncategorized image
+  const firstUncatIndex = allLines.findIndex(line => {
+    const parts = line.split(",").map(x => x.trim());
+    return parts.length < 4 || !parts[3];
+  });
+  currentIndex = firstUncatIndex >= 0 ? firstUncatIndex : 0;
+
   showImage();
 }
 
