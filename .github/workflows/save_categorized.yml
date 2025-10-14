@@ -1,0 +1,23 @@
+name: Save Categorized File
+
+on:
+  repository_dispatch:
+    types: [save_categorized]
+
+jobs:
+  commit-categorized:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # gives GITHUB_TOKEN write access
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Save categorized file
+        run: |
+          echo "${{ github.event.client_payload.updated_file }}" > idol_gallery_links.txt
+          git config user.name "Idol-Categorizer Bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add idol_gallery_links.txt
+          git commit -m "Save categorized file from web UI" || echo "No changes to commit"
+          git push
