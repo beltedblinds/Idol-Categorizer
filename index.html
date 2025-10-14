@@ -65,7 +65,7 @@
     <button id="videoSource">🎥 idols-video-01</button>
   </div>
 
-  <div id="imageContainer"><p>Loading images...</p></div>
+  <div id="imageContainer"><p>Loading...</p></div>
 
   <div class="controls" id="categoryButtons"></div>
 
@@ -79,14 +79,12 @@
   <div id="progress"></div>
 
 <script>
-let remoteLinks, localLinks, catsFile;
 let allLines = [];
 let categories = [];
 let uncategorizedOnly = false;
 let currentIndex = 0;
-let currentSource = "media"; // "media" or "video"
+let currentSource = "media";
 
-// Base URLs for both sources
 const sources = {
   media: {
     remote: "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt",
@@ -100,8 +98,7 @@ const sources = {
   }
 };
 
-// Shared categories file
-catsFile = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer-Test/main/categories.txt";
+const catsFile = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer-Test/main/categories.txt";
 
 async function loadText(url) {
   try {
@@ -118,42 +115,34 @@ async function init(source = "media") {
   document.getElementById("imageContainer").innerHTML = "<p>Loading items...</p>";
 
   const src = sources[source];
-  remoteLinks = src.remote;
-  localLinks = src.local;
-
   const [remoteText, localText, catsText] = await Promise.all([
-    loadText(remoteLinks),
-    loadText(localLinks),
+    loadText(src.remote),
+    loadText(src.local),
     loadText(catsFile)
   ]);
 
   const remote = remoteText.split(/\r?\n/).filter(Boolean);
   const local = localText.split(/\r?\n/).filter(Boolean);
 
-  // Normalize URLs so they match between repos
-  const normalize = str =>
-    str.replace(/\s+/g, "")
-       .replace("github.com", "raw.githubusercontent.com")
-       .replace("/blob/", "/");
+  // 👇 identical merge logic to your working old version
+  const normalize = str => str.replace(/\s+/g, "").replace("github.com", "raw.githubusercontent.com");
 
-  // Map of URL → local line (preserve categorized data)
-  const localMap = new Map();
-  for (const line of local) {
-    const parts = line.split(",").map(x => x.trim());
-    const key = normalize(parts[1] || "");
-    if (key) localMap.set(key, line);
-  }
+  const localMap = new Map(
+    local.map(line => {
+      const parts = line.split(",").map(x => x.trim());
+      return [normalize(parts[1] || ""), line];
+    })
+  );
 
-  // Merge remote + local data
   const merged = [];
   for (const line of remote) {
     const parts = line.split(",").map(x => x.trim());
     const [name, url, thumb, cat] = parts;
     const key = normalize(url);
     if (localMap.has(key)) {
-      merged.push(localMap.get(key)); // Use categorized version
+      merged.push(localMap.get(key));
     } else {
-      merged.push(`${name}, ${url}, ${thumb}, ${cat || ""}`); // Use fresh one
+      merged.push(`${name}, ${url}, ${thumb}, ${cat || ""}`);
     }
   }
 
@@ -167,7 +156,7 @@ async function init(source = "media") {
   });
   currentIndex = firstUncatIndex >= 0 ? firstUncatIndex : 0;
 
-  showImage();
+  showItem();
 }
 
 function renderCategoryButtons() {
@@ -189,7 +178,7 @@ function filteredLines() {
   });
 }
 
-function showImage() {
+function showItem() {
   const list = filteredLines();
   if (currentIndex < 0) currentIndex = 0;
   if (currentIndex >= list.length) {
@@ -228,16 +217,16 @@ function setCategory(cat) {
     allLines[idx] = `${n}, ${u}, ${t}, ${cat}`;
   }
   currentIndex++;
-  showImage();
+  showItem();
 }
 
-document.getElementById("skip").onclick = () => { currentIndex++; showImage(); };
-document.getElementById("prev").onclick = () => { currentIndex--; showImage(); };
+document.getElementById("skip").onclick = () => { currentIndex++; showItem(); };
+document.getElementById("prev").onclick = () => { currentIndex--; showItem(); };
 document.getElementById("uncatOnly").onclick = e => {
   uncategorizedOnly = !uncategorizedOnly;
   e.target.classList.toggle("active", uncategorizedOnly);
   currentIndex = 0;
-  showImage();
+  showItem();
 };
 
 document.getElementById("save").onclick = () => {
@@ -250,7 +239,7 @@ document.getElementById("save").onclick = () => {
   URL.revokeObjectURL(a.href);
 };
 
-// Source switching buttons
+// 🔄 Source toggle buttons
 document.getElementById("mediaSource").onclick = () => {
   document.getElementById("mediaSource").classList.add("active");
   document.getElementById("videoSource").classList.remove("active");
