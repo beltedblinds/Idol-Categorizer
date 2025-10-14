@@ -13,8 +13,14 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    height: 100vh;
+    justify-content: flex-start;
+    min-height: 100vh;
+    padding: 1rem;
+  }
+  h1 {
+    margin-top: 1rem;
+    font-size: 2rem;
+    color: #ff7bcb;
   }
   img {
     max-width: 80vw;
@@ -25,12 +31,13 @@
   }
   .controls {
     display: flex;
-    gap: 1rem;
+    gap: 0.75rem;
     flex-wrap: wrap;
     justify-content: center;
+    margin-bottom: 0.5rem;
   }
   button {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     padding: 0.5rem 1.25rem;
     border-radius: 0.5rem;
     border: none;
@@ -43,78 +50,83 @@
   #progress {
     margin-top: 1rem;
     font-size: 0.9rem;
-    opacity: 0.8;
+    opacity: 0.85;
   }
   #download, #saveProgress {
-    margin-top: 1.5rem;
-    display: none;
+    margin-top: 1rem;
+    background: #007bff;
   }
-  #download { background: #28a745; }
-  #saveProgress { background: #007bff; }
+  #statusMsg {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    opacity: 0.8;
+  }
 </style>
 </head>
 <body>
   <h1>🎶 Idol Categorizer</h1>
   <div id="imageContainer"><p>Loading images...</p></div>
+
   <div class="controls" id="categoryButtons" style="display:none;"></div>
-  <div id="progress"></div>
+
   <div class="controls">
-    <button id="skip">Skip</button>
-    <button id="saveProgress">Save Progress</button>
-    <button id="download">Download Updated File</button>
+    <button id="skipBtn">⏭️ Skip</button>
+    <button id="saveProgress">💾 Save Progress</button>
   </div>
+
+  <div id="progress"></div>
+  <div id="statusMsg"></div>
+  <button id="download" style="display:none;">Download Updated File</button>
 
 <script>
 const rawUrl = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt";
-const categoriesUrl = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/categories.txt";
+const catUrl = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/categories.txt";
 
+let categories = [];
 let lines = [];
-let uncategorized = [];
 let currentIndex = 0;
 let categorized = {};
-let categories = [];
+let uncategorized = [];
 
-// Initialize app
 async function init() {
-  try {
-    const [catRes, txtRes] = await Promise.all([fetch(categoriesUrl), fetch(rawUrl)]);
-    categories = (await catRes.text()).split(/\r?\n/).map(x => x.trim()).filter(Boolean);
-    const text = await txtRes.text();
-    lines = text.split(/\r?\n/).filter(l => l.trim().length);
+  const [linkRes, catRes] = await Promise.all([
+    fetch(rawUrl),
+    fetch(catUrl)
+  ]);
 
-    // Identify only lines with missing or empty category
-    uncategorized = lines
-      .map((line, i) => ({ line, i }))
-      .filter(obj => {
-        const parts = obj.line.split(",").map(x => x.trim());
-        return parts.length < 4 || !parts[3];
-      });
+  const text = await linkRes.text();
+  const catText = await catRes.text();
 
-    if (!uncategorized.length) {
-      document.getElementById("imageContainer").innerHTML = "<p>All images are already categorized 🎉</p>";
-      return;
-    }
+  categories = catText.split(/\r?\n/).map(c => c.trim()).filter(Boolean);
 
-    createCategoryButtons();
-    loadProgress();
-    showCurrent();
-    document.getElementById("categoryButtons").style.display = "flex";
-    document.getElementById("saveProgress").style.display = "inline-block";
-  } catch (e) {
-    document.getElementById("imageContainer").innerHTML = `<p>❌ Failed to load data: ${e.message}</p>`;
+  // Generate category buttons dynamically
+  const catContainer = document.getElementById("categoryButtons");
+  catContainer.innerHTML = categories.map(cat => 
+    `<button data-cat="${cat}">${cat}</button>`
+  ).join("");
+
+  lines = text.split(/\r?\n/).filter(l => l.trim().length);
+
+  // Identify only lines missing a category (fewer than 4 fields or empty last field)
+  uncategorized = lines
+    .map((line, i) => ({ line, i }))
+    .filter(obj => {
+      const parts = obj.line.split(",").map(p => p.trim());
+      return parts.length < 4 || !parts[3];
+    });
+
+  if (!uncategorized.length) {
+    document.getElementById("imageContainer").innerHTML = "<p>All images are already categorized 🎉</p>";
+    return;
   }
-}
 
-function createCategoryButtons() {
-  const container = document.getElementById("categoryButtons");
-  container.innerHTML = "";
-  categories.forEach(cat => {
-    const btn = document.createElement("button");
-    btn.textContent = cat;
-    btn.dataset.cat = cat;
-    btn.addEventListener("click", () => handleCategory(cat));
-    container.appendChild(btn);
-  });
+  loadProgress();
+  showCurrent();
+  document.getElementById("categoryButtons").style.display = "flex";
+
+  document.querySelectorAll("button[data-cat]").forEach(btn =>
+    btn.addEventListener("click", () => handleCategory(btn.dataset.cat))
+  );
 }
 
 function showCurrent() {
@@ -129,7 +141,7 @@ function showCurrent() {
   const { line } = uncategorized[currentIndex];
   const parts = line.split(",").map(x => x.trim());
   const name = parts[0];
-  const raw = parts[1]; // Use full GIF or original image instead of thumbnail
+  const raw = parts[1]; // Use raw instead of thumbnail
 
   document.getElementById("imageContainer").innerHTML = `
     <h3>${name}</h3>
@@ -139,29 +151,25 @@ function showCurrent() {
     `Image ${currentIndex + 1} of ${uncategorized.length}`;
 }
 
-
 function handleCategory(cat) {
   const obj = uncategorized[currentIndex];
   const { i, line } = obj;
   const parts = line.split(",").map(p => p.trim()).filter(Boolean);
 
-  if (parts.length === 3) {
+  if (parts.length >= 3) {
     lines[i] = `${parts[0]}, ${parts[1]}, ${parts[2]}, ${cat}`;
-  } else if (parts.length === 2) {
-    lines[i] = `${parts[0]}, ${parts[1]}, , ${cat}`;
   } else {
-    lines[i] = line + `, ${cat}`;
+    lines[i] = `${parts[0]}, ${parts[1]}, , ${cat}`;
   }
 
   categorized[i] = cat;
   currentIndex++;
-  saveProgress();
+  saveProgress(false);
   showCurrent();
 }
 
-function handleSkip() {
+function skipImage() {
   currentIndex++;
-  saveProgress();
   showCurrent();
 }
 
@@ -184,18 +192,37 @@ async function updateFile() {
   );
 
   if (response.ok) {
-    alert("✅ Updated file sent to GitHub — the main repo will update shortly!");
+    alert("✅ Updated file sent to GitHub — idols-media-01 will update soon!");
   } else {
     alert("❌ Failed to send update. Check your GH_TOKEN or permissions.");
   }
 }
 
-function saveProgress() {
+function saveProgress(showFeedback = true) {
   localStorage.setItem("categorizedProgress", JSON.stringify({
     lines,
     currentIndex,
     categorized
   }));
+
+  if (showFeedback) {
+    const btn = document.getElementById("saveProgress");
+    const msg = document.getElementById("statusMsg");
+    const now = new Date().toLocaleTimeString();
+
+    btn.disabled = true;
+    btn.textContent = "💾 Progress saved!";
+    btn.style.background = "#4CAF50";
+
+    msg.textContent = `✅ Last saved at ${now}`;
+    msg.style.color = "#8f8";
+
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.textContent = "Save Progress";
+      btn.style.background = "#007bff";
+    }, 2000);
+  }
 }
 
 function loadProgress() {
@@ -203,18 +230,18 @@ function loadProgress() {
   if (saved.lines && saved.lines.length === lines.length) {
     lines = saved.lines;
     categorized = saved.categorized;
-    currentIndex = saved.currentIndex || 0;
+    currentIndex = saved.currentIndex;
     uncategorized = lines
       .map((line, i) => ({ line, i }))
       .filter(obj => {
-        const parts = obj.line.split(",").map(x => x.trim());
+        const parts = obj.line.split(",").map(p => p.trim());
         return parts.length < 4 || !parts[3];
       });
   }
 }
 
-document.getElementById("skip").addEventListener("click", handleSkip);
-document.getElementById("saveProgress").addEventListener("click", saveProgress);
+document.getElementById("skipBtn").addEventListener("click", skipImage);
+document.getElementById("saveProgress").addEventListener("click", () => saveProgress(true));
 
 init();
 </script>
