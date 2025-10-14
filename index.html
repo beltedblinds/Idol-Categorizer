@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Idol Categorizer</title>
+<title>🎶 Idol Categorizer</title>
 <style>
   body {
     font-family: system-ui, sans-serif;
@@ -15,6 +15,7 @@
     align-items: center;
     justify-content: center;
     height: 100vh;
+    text-align: center;
   }
   img {
     max-width: 80vw;
@@ -26,38 +27,41 @@
   .controls {
     display: flex;
     flex-wrap: wrap;
-    gap: 1rem;
     justify-content: center;
+    gap: 0.75rem;
   }
   button {
-    font-size: 1.1rem;
-    padding: 0.5rem 1.25rem;
+    font-size: 1rem;
+    padding: 0.5rem 1rem;
     border-radius: 0.5rem;
     border: none;
-    background: #444;
+    background: #333;
     color: white;
     cursor: pointer;
     transition: background 0.2s;
   }
-  button:hover { background: #666; }
-  #progress { margin-top: 1rem; font-size: 0.9rem; opacity: 0.8; }
-  #download, #commitBtn { margin-top: 1.5rem; display: none; background: #28a745; }
-  #saveBtn { background: #1e90ff; }
-  #skipBtn { background: #888; }
-  #status { margin-top: 1rem; font-size: 0.9rem; color: #0f0; }
+  button:hover { background: #555; }
+  #saveProgress { background: #007bff; }
+  #commitToGitHub { background: #28a745; }
+  #skipBtn { background: #777; }
+  #prevBtn { background: #444; }
+  #status {
+    margin-top: 0.75rem;
+    font-size: 0.9rem;
+    opacity: 0.85;
+  }
 </style>
 </head>
 <body>
   <h1>🎶 Idol Categorizer</h1>
   <div id="imageContainer"><p>Loading images...</p></div>
-
   <div class="controls" id="categoryButtons" style="display:none;"></div>
 
-  <div class="controls" style="margin-top:1rem;">
+  <div class="controls">
     <button id="prevBtn">⬅️ Previous</button>
-    <button id="skipBtn">Skip</button>
-    <button id="saveBtn">💾 Save Progress</button>
-    <button id="commitBtn">🚀 Commit to GitHub</button>
+    <button id="skipBtn">⏭️ Skip</button>
+    <button id="saveProgress">💾 Save Progress</button>
+    <button id="commitToGitHub">🚀 Commit to GitHub</button>
   </div>
 
   <div id="progress"></div>
@@ -68,42 +72,48 @@ const rawUrl = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/ma
 const categoriesUrl = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/categories.txt";
 
 let lines = [];
-let currentIndex = 0;
-let categorized = {};
 let uncategorized = [];
+let categorized = {};
+let currentIndex = 0;
 let categories = [];
 
 async function init() {
+  document.getElementById("imageContainer").innerHTML = "<p>Loading categories...</p>";
+  await loadCategories();
+
+  const res = await fetch(rawUrl);
+  const text = await res.text();
+  lines = text.split(/\r?\n/).filter(l => l.trim().length);
+
+  // Show any line missing or having empty category
+  uncategorized = lines
+    .map((line, i) => ({ line, i }))
+    .filter(obj => {
+      const parts = obj.line.split(",").map(x => x.trim());
+      return parts.length < 4 || !parts[3];
+    });
+
+  if (!uncategorized.length) {
+    document.getElementById("imageContainer").innerHTML = "<p>All images are already categorized 🎉</p>";
+    return;
+  }
+
+  buildCategoryButtons();
+  loadProgress();
+  showCurrent();
+}
+
+async function loadCategories() {
   try {
-    // Load categories from categories.txt
-    const catRes = await fetch(categoriesUrl);
-    const catText = await catRes.text();
-    categories = catText.split(/\r?\n/).filter(Boolean);
-    renderCategoryButtons();
-
-    const res = await fetch(rawUrl);
+    const res = await fetch(categoriesUrl);
     const text = await res.text();
-    lines = text.split(/\r?\n/).filter(l => l.trim().length);
-
-    uncategorized = lines
-      .map((line, i) => ({ line, i }))
-      .filter(obj => obj.line.split(",").filter(Boolean).length < 4);
-
-    if (!uncategorized.length) {
-      document.getElementById("imageContainer").innerHTML = "<p>All images are already categorized 🎉</p>";
-      return;
-    }
-
-    loadProgress();
-    showCurrent();
-    document.getElementById("categoryButtons").style.display = "flex";
-    document.getElementById("commitBtn").style.display = "inline-block";
-  } catch (err) {
-    document.getElementById("imageContainer").innerHTML = `<p>Error loading data: ${err.message}</p>`;
+    categories = text.split(/\r?\n/).filter(Boolean).map(c => c.trim());
+  } catch (e) {
+    categories = ["A","B","C","D","E"];
   }
 }
 
-function renderCategoryButtons() {
+function buildCategoryButtons() {
   const container = document.getElementById("categoryButtons");
   container.innerHTML = "";
   categories.forEach(cat => {
@@ -113,9 +123,11 @@ function renderCategoryButtons() {
     btn.addEventListener("click", () => handleCategory(cat));
     container.appendChild(btn);
   });
+  container.style.display = "flex";
 }
 
 function showCurrent() {
+  if (currentIndex < 0) currentIndex = 0;
   if (currentIndex >= uncategorized.length) {
     document.getElementById("imageContainer").innerHTML = "<p>✅ Categorization complete!</p>";
     document.getElementById("categoryButtons").style.display = "none";
@@ -126,7 +138,6 @@ function showCurrent() {
   const parts = line.split(",").map(x => x.trim());
   const name = parts[0];
   const raw = parts[1];
-
   document.getElementById("imageContainer").innerHTML = `
     <h3>${name}</h3>
     <img src="${raw}" alt="${name}" onerror="this.style.display='none';">
@@ -140,36 +151,45 @@ function handleCategory(cat) {
   const { i, line } = obj;
   const parts = line.split(",").map(p => p.trim()).filter(Boolean);
 
-  if (parts.length >= 3) {
-    lines[i] = `${parts[0]}, ${parts[1]}, ${parts[2]}, ${cat}`;
-  } else {
-    lines[i] = line + `, ${cat}`;
-  }
-
+  lines[i] = `${parts[0]}, ${parts[1]}, ${parts[2]}, ${cat}`;
   categorized[i] = cat;
   currentIndex++;
-  saveProgress();
+  saveProgress(false);
   showCurrent();
 }
 
-function skipImage() {
+function skipCurrent() {
   currentIndex++;
-  saveProgress();
   showCurrent();
 }
 
-function prevImage() {
-  if (currentIndex > 0) {
-    currentIndex--;
-    showCurrent();
-  }
+function previousImage() {
+  currentIndex = Math.max(0, currentIndex - 1);
+  showCurrent();
 }
 
-function saveProgress() {
+function saveProgress(showStatus = true) {
   localStorage.setItem("categorizedProgress", JSON.stringify({
-    lines, currentIndex, categorized
+    lines,
+    currentIndex,
+    categorized
   }));
-  showStatus("💾 Progress saved locally!", "lime");
+
+  if (showStatus) {
+    const btn = document.getElementById("saveProgress");
+    btn.disabled = true;
+    btn.textContent = "💾 Saved!";
+    btn.style.background = "#4CAF50";
+
+    const now = new Date().toLocaleTimeString();
+    document.getElementById("status").textContent = `Last saved at ${now}`;
+
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.textContent = "💾 Save Progress";
+      btn.style.background = "#007bff";
+    }, 1500);
+  }
 }
 
 function loadProgress() {
@@ -180,12 +200,20 @@ function loadProgress() {
     currentIndex = saved.currentIndex || 0;
     uncategorized = lines
       .map((line, i) => ({ line, i }))
-      .filter(obj => obj.line.split(",").filter(Boolean).length < 4);
+      .filter(obj => {
+        const parts = obj.line.split(",").map(x => x.trim());
+        return parts.length < 4 || !parts[3];
+      });
   }
 }
 
 async function commitToGitHub() {
-  showStatus("🚀 Sending update to GitHub...", "yellow");
+  const btn = document.getElementById("commitToGitHub");
+  const status = document.getElementById("status");
+
+  btn.disabled = true;
+  btn.textContent = "⏳ Sending...";
+  status.textContent = "Sending update to GitHub...";
 
   const updated = lines.join("\n");
   const response = await fetch(
@@ -204,23 +232,24 @@ async function commitToGitHub() {
   );
 
   if (response.ok) {
-    showStatus("✅ Update dispatched to GitHub successfully!", "lime");
+    btn.textContent = "✅ Sent!";
+    status.textContent = "✅ Update sent — GitHub Action should run shortly.";
   } else {
-    showStatus("❌ Failed to commit. Check token or workflow logs.", "red");
+    btn.textContent = "❌ Failed";
+    status.textContent = "❌ Failed to send update. Check GH_TOKEN or permissions.";
   }
+
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.textContent = "🚀 Commit to GitHub";
+  }, 3000);
 }
 
-function showStatus(msg, color) {
-  const el = document.getElementById("status");
-  el.textContent = msg;
-  el.style.color = color;
-  setTimeout(() => (el.textContent = ""), 4000);
-}
-
-document.getElementById("skipBtn").addEventListener("click", skipImage);
-document.getElementById("saveBtn").addEventListener("click", saveProgress);
-document.getElementById("commitBtn").addEventListener("click", commitToGitHub);
-document.getElementById("prevBtn").addEventListener("click", prevImage);
+// --- Event bindings ---
+document.getElementById("skipBtn").addEventListener("click", skipCurrent);
+document.getElementById("prevBtn").addEventListener("click", previousImage);
+document.getElementById("saveProgress").addEventListener("click", () => saveProgress(true));
+document.getElementById("commitToGitHub").addEventListener("click", commitToGitHub);
 
 init();
 </script>
