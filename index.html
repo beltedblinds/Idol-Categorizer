@@ -1,221 +1,145 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Idol Categorizer</title>
-<style>
-  body {
-    font-family: system-ui, sans-serif;
-    background: #111;
-    color: #eee;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 1rem;
-  }
-  h1 { margin-bottom: 0.5rem; }
-  img {
-    max-width: 80vw;
-    max-height: 60vh;
-    border-radius: 1rem;
-    box-shadow: 0 0 20px #0008;
-    margin: 1rem 0;
-  }
-  .controls {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.5rem;
-  }
-  button {
-    font-size: 1.1rem;
-    padding: 0.5rem 1.25rem;
-    border-radius: 0.5rem;
-    border: none;
-    background: #444;
-    color: white;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-  button:hover { background: #666; }
-  #progress { margin-top: 0.75rem; font-size: 0.9rem; opacity: 0.8; }
-  #saveStatus { margin-top: 0.5rem; font-size: 0.9rem; opacity: 0.7; }
-  #bottomButtons {
-    margin-top: 1.5rem;
-    display: flex;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-  .toggle-on { background: #007bff; }
-</style>
+  <meta charset="UTF-8">
+  <title>🎶 Idol Categorizer</title>
+  <style>
+    body { font-family: sans-serif; background: #111; color: #fff; text-align: center; }
+    img { max-width: 400px; border-radius: 10px; margin: 20px; }
+    button { margin: 5px; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; }
+    .category-btn { background: #333; color: #fff; }
+    .category-btn:hover { background: #555; }
+    .control-btn { background: #0066ff; color: white; }
+    #saveStatus { margin-top: 15px; font-size: 0.9rem; }
+  </style>
 </head>
 <body>
   <h1>🎶 Idol Categorizer</h1>
-  <div id="imageContainer"><p>Loading images...</p></div>
+  <p id="progress"></p>
+  <img id="idolImage" src="" alt="Idol image">
+  <div id="categoryButtons"></div>
 
-  <div class="controls" id="categoryButtons" style="display:none;"></div>
-
-  <div id="progress"></div>
-  <div id="saveStatus"></div>
-
-  <div id="bottomButtons">
-    <button id="prevBtn">Previous</button>
-    <button id="skipBtn">Skip</button>
-    <button id="toggleUncat">Show Uncategorised Only: OFF</button>
-    <button id="saveBtn">Save Progress</button>
+  <div>
+    <button class="control-btn" onclick="previousImage()">Previous</button>
+    <button class="control-btn" onclick="skipImage()">Skip</button>
+    <button class="control-btn" onclick="toggleUncategorized()">Show Uncat Only</button>
+    <button class="control-btn" onclick="saveProgress()">Save Progress</button>
   </div>
+  <p id="saveStatus"></p>
 
-<script>
-const srcRaw = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt";
-const catRaw = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_gallery_links.txt";
-const catsFile = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/categories.txt";
+  <script>
+    let allLines = [];
+    let categorized = {};
+    let currentIndex = 0;
+    let showUncatOnly = false;
+    let categories = [];
+    let filtered = [];
 
-let categories = [];
-let mergedLines = [];
-let currentIndex = 0;
-let uncategorizedOnly = false;
+    async function loadData() {
+      const [mainTxt, catTxt, catList] = await Promise.all([
+        fetch("https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt").then(r => r.text()),
+        fetch("idol_gallery_links.txt").then(r => r.ok ? r.text() : ""),
+        fetch("categories.txt").then(r => r.text())
+      ]);
 
-// Load categories, source, and local categorized data
-async function init() {
-  try {
-    const [catText, srcText, localText] = await Promise.all([
-      fetch(catsFile).then(r => r.ok ? r.text() : ""),
-      fetch(srcRaw).then(r => r.text()),
-      fetch(catRaw).then(r => r.ok ? r.text() : "")
-    ]);
+      categories = catList.split("\n").map(c => c.trim()).filter(Boolean);
+      allLines = mainTxt.split("\n").filter(Boolean).map(l => l.split(",").map(x => x.trim()));
 
-    categories = catText.split(/\r?\n/).filter(Boolean);
-    renderCategoryButtons();
+      if (catTxt) {
+        catTxt.split("\n").forEach(line => {
+          const parts = line.split(",").map(x => x.trim());
+          if (parts.length >= 4) categorized[parts[1]] = parts[3];
+        });
+      }
 
-    const srcLines = srcText.split(/\r?\n/).filter(l => l.trim());
-    const localLines = localText.split(/\r?\n/).filter(l => l.trim());
-
-    const localMap = new Map();
-    for (const l of localLines) {
-      const parts = l.split(",").map(x => x.trim());
-      if (parts.length >= 3) localMap.set(parts[1], parts[3] || "");
+      refreshFiltered();
+      setupCategoryButtons();
+      showImage();
     }
 
-    mergedLines = srcLines.map(line => {
-      const parts = line.split(",").map(x => x.trim());
-      const cat = localMap.get(parts[1]) || "";
-      return [parts[0], parts[1], parts[2], cat];
-    });
-
-    if (!mergedLines.length) {
-      document.getElementById("imageContainer").innerHTML = "<p>No images found.</p>";
-      return;
+    function refreshFiltered() {
+      filtered = allLines.filter(l => {
+        const raw = l[1];
+        if (showUncatOnly) return !categorized[raw];
+        return true;
+      });
     }
 
-    showCurrent();
-  } catch (e) {
-    document.getElementById("imageContainer").innerHTML = "<p>⚠️ Failed to load data</p>";
-    console.error(e);
-  }
-}
+    function setupCategoryButtons() {
+      const container = document.getElementById("categoryButtons");
+      container.innerHTML = "";
+      categories.forEach(cat => {
+        const b = document.createElement("button");
+        b.textContent = cat;
+        b.className = "category-btn";
+        b.onclick = () => assignCategory(cat);
+        container.appendChild(b);
+      });
+    }
 
-function renderCategoryButtons() {
-  const div = document.getElementById("categoryButtons");
-  div.innerHTML = "";
-  categories.forEach(cat => {
-    const btn = document.createElement("button");
-    btn.textContent = cat;
-    btn.onclick = () => handleCategory(cat);
-    div.appendChild(btn);
-  });
-  div.style.display = "flex";
-}
+    function showImage() {
+      if (filtered.length === 0) {
+        document.getElementById("idolImage").src = "";
+        document.getElementById("progress").textContent = "🎉 All categorized!";
+        return;
+      }
 
-function showCurrent() {
-  const filtered = getFilteredList();
-  if (!filtered.length) {
-    document.getElementById("imageContainer").innerHTML = "<p>✅ Categorization complete!</p>";
-    document.getElementById("categoryButtons").style.display = "none";
-    return;
-  }
-  const { idx, data } = filtered[currentIndex] || filtered[0];
-  const [name, raw, thumb, cat] = data;
+      const [name, raw, thumb] = filtered[currentIndex];
+      document.getElementById("idolImage").src = raw;
+      document.getElementById("progress").textContent =
+        `${currentIndex + 1}/${filtered.length} — ${name}`;
+    }
 
-  document.getElementById("imageContainer").innerHTML = `
-    <h3>${name}</h3>
-    <img src="${raw}" alt="${name}" onerror="this.style.display='none';">
-    <p>Category: <b>${cat || "(none)"}</b></p>
-  `;
-  document.getElementById("progress").textContent = 
-    `Image ${currentIndex + 1} of ${filtered.length}`;
-}
+    function assignCategory(cat) {
+      const [name, raw, thumb] = filtered[currentIndex];
+      categorized[raw] = cat;
+      nextImage();
+    }
 
-function getFilteredList() {
-  return mergedLines
-    .map((data, idx) => ({ idx, data }))
-    .filter(obj => !uncategorizedOnly || !obj.data[3]);
-}
+    function skipImage() {
+      nextImage();
+    }
 
-function handleCategory(cat) {
-  const filtered = getFilteredList();
-  if (!filtered.length) return;
+    function previousImage() {
+      if (currentIndex > 0) currentIndex--;
+      showImage();
+    }
 
-  const { idx } = filtered[currentIndex];
-  mergedLines[idx][3] = cat;
+    function nextImage() {
+      currentIndex++;
+      if (currentIndex >= filtered.length) {
+        currentIndex = filtered.length - 1;
+        document.getElementById("progress").textContent = "🎉 Categorization complete!";
+      }
+      showImage();
+    }
 
-  if (currentIndex < filtered.length - 1) {
-    currentIndex++;
-  }
-  showCurrent();
-}
+    function toggleUncategorized() {
+      showUncatOnly = !showUncatOnly;
+      refreshFiltered();
+      currentIndex = 0;
+      showImage();
+    }
 
-function skipImage() {
-  const filtered = getFilteredList();
-  if (currentIndex < filtered.length - 1) currentIndex++;
-  showCurrent();
-}
+    async function saveProgress() {
+      const out = allLines.map(l => {
+        const raw = l[1];
+        const cat = categorized[raw] || "";
+        return [...l.slice(0, 3), cat].join(", ");
+      }).join("\n");
 
-function prevImage() {
-  if (currentIndex > 0) currentIndex--;
-  showCurrent();
-}
+      const blob = new Blob([out], { type: "text/plain" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "idol_gallery_links.txt";
+      link.click();
+      URL.revokeObjectURL(link.href);
 
-async function saveProgress() {
-  const updated = mergedLines.map(x => x.join(", ")).join("\n");
-  document.getElementById("saveStatus").textContent = "💾 Saving...";
+      document.getElementById("saveStatus").textContent =
+        "✅ Saved locally — upload this file to your Idol-Categorizer repo.";
+    }
 
-  const response = await fetch("https://api.github.com/repos/beltedblinds/Idol-Categorizer/dispatches", {
-    method: "POST",
-    headers: {
-      "Accept": "application/vnd.github+json",
-      "Authorization": "Bearer GITHUB_TOKEN_PLACEHOLDER", // Replace manually for local testing if needed
-    },
-    body: JSON.stringify({
-      event_type: "save_categorized_links",
-      client_payload: { updated_file: updated }
-    })
-  });
-
-  if (response.ok) {
-    document.getElementById("saveStatus").textContent = "✅ Saved and committed!";
-  } else {
-    document.getElementById("saveStatus").textContent = "❌ Save failed — check token or workflow logs.";
-  }
-}
-
-function toggleUncat() {
-  uncategorizedOnly = !uncategorizedOnly;
-  document.getElementById("toggleUncat").textContent = 
-    `Show Uncategorised Only: ${uncategorizedOnly ? "ON" : "OFF"}`;
-  currentIndex = 0;
-  showCurrent();
-}
-
-// Event bindings
-document.getElementById("skipBtn").onclick = skipImage;
-document.getElementById("prevBtn").onclick = prevImage;
-document.getElementById("saveBtn").onclick = saveProgress;
-document.getElementById("toggleUncat").onclick = toggleUncat;
-
-init();
-</script>
+    loadData();
+  </script>
 </body>
 </html>
