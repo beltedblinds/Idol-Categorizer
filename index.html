@@ -40,6 +40,12 @@
     transition: background 0.2s;
   }
   button:hover { background: #666; }
+  #skip {
+    background: #aa3333;
+  }
+  #skip:hover {
+    background: #cc4444;
+  }
   #progress {
     margin-top: 1rem;
     font-size: 0.9rem;
@@ -74,6 +80,8 @@ let uncategorized = [];
 function createCategoryButtons() {
   const container = document.getElementById("categoryButtons");
   container.innerHTML = "";
+
+  // Create category buttons
   categories.forEach(cat => {
     const btn = document.createElement("button");
     btn.textContent = cat;
@@ -81,6 +89,13 @@ function createCategoryButtons() {
     btn.addEventListener("click", () => handleCategory(cat));
     container.appendChild(btn);
   });
+
+  // Add Skip button
+  const skipBtn = document.createElement("button");
+  skipBtn.id = "skip";
+  skipBtn.textContent = "Skip";
+  skipBtn.addEventListener("click", skipImage);
+  container.appendChild(skipBtn);
 }
 
 async function init() {
@@ -141,6 +156,13 @@ function handleCategory(cat) {
   }
 
   categorized[i] = cat;
+  currentIndex++;
+  saveProgress();
+  showCurrent();
+}
+
+/* Skip current image without assigning category */
+function skipImage() {
   currentIndex++;
   saveProgress();
   showCurrent();
