@@ -152,8 +152,8 @@ function handleCategory(cat) {
   parts[3] = cat;
   lines[i] = parts.join(", ");
   saveProgress(false);
-  rebuildViewList(); // ✅ ensure filtered list updates dynamically
-  showCurrent();     // ✅ refresh UI immediately to show new category
+  rebuildViewList(); // refresh uncategorized filter
+  nextImage();       // ✅ move automatically to the next image
 }
 
 function nextImage() {
