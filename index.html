@@ -100,7 +100,7 @@ const sources = {
   }
 };
 
-// Categories (shared file)
+// Shared categories file
 catsFile = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer-Test/main/categories.txt";
 
 async function loadText(url) {
@@ -130,25 +130,30 @@ async function init(source = "media") {
   const remote = remoteText.split(/\r?\n/).filter(Boolean);
   const local = localText.split(/\r?\n/).filter(Boolean);
 
-  const normalize = str => str.replace(/\s+/g, "").replace("github.com", "raw.githubusercontent.com");
+  // Normalize URLs so they match between repos
+  const normalize = str =>
+    str.replace(/\s+/g, "")
+       .replace("github.com", "raw.githubusercontent.com")
+       .replace("/blob/", "/");
 
-  const localMap = new Map(
-    local.map(line => {
-      const parts = line.split(",").map(x => x.trim());
-      return [normalize(parts[1] || ""), line];
-    })
-  );
+  // Map of URL → local line (preserve categorized data)
+  const localMap = new Map();
+  for (const line of local) {
+    const parts = line.split(",").map(x => x.trim());
+    const key = normalize(parts[1] || "");
+    if (key) localMap.set(key, line);
+  }
 
+  // Merge remote + local data
   const merged = [];
   for (const line of remote) {
     const parts = line.split(",").map(x => x.trim());
     const [name, url, thumb, cat] = parts;
     const key = normalize(url);
-
     if (localMap.has(key)) {
-      merged.push(localMap.get(key));
+      merged.push(localMap.get(key)); // Use categorized version
     } else {
-      merged.push(`${name}, ${url}, ${thumb}, ${cat || ""}`);
+      merged.push(`${name}, ${url}, ${thumb}, ${cat || ""}`); // Use fresh one
     }
   }
 
