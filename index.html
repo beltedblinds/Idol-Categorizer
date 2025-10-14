@@ -3,185 +3,108 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Idol Categorizer</title>
+<title>🎶 Idol Categorizer</title>
 <style>
   body {
+    font-family: system-ui, sans-serif;
     background: #111;
     color: #eee;
-    font-family: Arial, sans-serif;
-    text-align: center;
     margin: 0;
-    padding: 0;
-  }
-  h1 {
-    margin: 1em 0;
-  }
-  #image-container {
-    margin: 1em auto;
-    width: 80%;
-    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
   }
   img {
-    width: 100%;
-    border-radius: 12px;
-    box-shadow: 0 0 10px rgba(255,255,255,0.2);
-  }
-  .buttons {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    margin: 1em 0;
+    max-width: 80vw;
+    max-height: 60vh;
+    border-radius: 1rem;
+    box-shadow: 0 0 20px #0008;
+    margin: 1rem 0;
   }
   button {
-    margin: 0.5em;
-    padding: 0.7em 1.2em;
+    font-size: 1rem;
+    padding: 0.5rem 1rem;
+    margin: 0.25rem;
+    border-radius: 0.5rem;
     border: none;
-    border-radius: 8px;
-    font-size: 1em;
+    background: #444;
+    color: white;
     cursor: pointer;
-    background-color: #444;
-    color: #eee;
-    transition: background-color 0.3s;
+    transition: background 0.2s;
   }
-  button:hover {
-    background-color: #666;
-  }
+  button:hover { background: #666; }
   #status {
-    margin-top: 1em;
-    font-size: 0.9em;
-    color: #9f9;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    opacity: 0.8;
   }
 </style>
 </head>
 <body>
-  <h1>Idol Categorizer</h1>
-  <div id="image-container">
-    <img id="idol-image" src="" alt="Idol Image" />
-  </div>
-
-  <div class="buttons">
-    <button id="previous-btn">Previous</button>
-    <button id="skip-btn">Skip</button>
-    <button id="uncategorized-toggle">Show Uncategorized Only</button>
-  </div>
-
-  <div class="buttons" id="category-buttons">
-    <button class="category-btn" data-category="Group">Group</button>
-    <button class="category-btn" data-category="Solo">Solo</button>
-    <button class="category-btn" data-category="Subunit">Subunit</button>
-  </div>
-
-  <div class="buttons">
-    <button id="save-btn">💾 Save Categorized File</button>
-  </div>
-
+  <h1>🎶 Idol Categorizer</h1>
+  <div id="imageContainer">Loading images...</div>
+  <div id="controls"></div>
   <div id="status"></div>
+  <button id="saveBtn">💾 Save Categorized File</button>
 
 <script>
-const imageEl = document.getElementById('idol-image');
-const statusEl = document.getElementById('status');
-const uncategorizedToggle = document.getElementById('uncategorized-toggle');
-let idolData = [];
-let currentIndex = 0;
-let showUncategorizedOnly = false;
+const idolLinksUrl = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt";
+let lines = [];
 
-// 1️⃣ Load idol_gallery_links.txt from idols-media-01
-async function loadLinks() {
-  const mediaResp = await fetch('https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt');
-  const mediaText = await mediaResp.text();
-  const mediaLines = mediaText.trim().split('\n').map(l => l.split(','));
+// Example categories file (you could also fetch a categories.txt)
+const categories = ["A", "B", "C", "D", "E"];
 
-  // 2️⃣ Load Idol-Categorizer's own copy if it exists
-  let categorizedMap = {};
+async function init() {
+  const res = await fetch(idolLinksUrl);
+  const text = await res.text();
+  lines = text.split(/\r?\n/).filter(l => l.trim().length);
+  document.getElementById("imageContainer").innerHTML = `<p>Loaded ${lines.length} lines.</p>`;
+  buildCategoryButtons();
+}
+
+function buildCategoryButtons() {
+  const container = document.getElementById("controls");
+  categories.forEach(cat => {
+    const btn = document.createElement("button");
+    btn.textContent = cat;
+    btn.onclick = () => alert(`(placeholder) Assign category ${cat}`);
+    container.appendChild(btn);
+  });
+}
+
+document.getElementById("saveBtn").addEventListener("click", async () => {
+  const updatedFile = lines.join("\n");
+  const status = document.getElementById("status");
+  status.textContent = "⏳ Sending to GitHub...";
+  const payload = {
+    event_type: "save_categorized",
+    client_payload: { updated_file: updatedFile }
+  };
   try {
-    const catResp = await fetch('https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_gallery_links.txt');
-    const catText = await catResp.text();
-    catText.trim().split('\n').forEach(line => {
-      const parts = line.split(',');
-      const key = parts.slice(0, 3).join(',');
-      categorizedMap[key] = parts[3] || '';
+    const resp = await fetch("https://github-rest-proxy.pages.dev/dispatch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        owner: "beltedblinds",
+        repo: "Idol-Categorizer",
+        event_type: "save_categorized",
+        client_payload: { updated_file: updatedFile }
+      })
     });
-  } catch (err) {
-    console.log('No categorized file yet, starting fresh');
-  }
-
-  // 3️⃣ Merge new images from idols-media-01
-  idolData = mediaLines.map(parts => {
-    const key = parts.slice(0, 3).join(',');
-    return { name: parts[0], url: parts[1], thumb: parts[2], category: categorizedMap[key] || '' };
-  });
-
-  showImage();
-}
-
-function showImage() {
-  let filtered = idolData;
-  if (showUncategorizedOnly) filtered = idolData.filter(i => !i.category);
-  if (filtered.length === 0) {
-    statusEl.textContent = "🎉 Categorization complete!";
-    imageEl.src = '';
-    return;
-  }
-  if (currentIndex >= filtered.length) currentIndex = 0;
-  const idol = filtered[currentIndex];
-  imageEl.src = idol.thumb || idol.url;
-  statusEl.textContent = `${idol.name} (${idol.category || 'Uncategorized'})`;
-}
-
-document.getElementById('previous-btn').addEventListener('click', () => {
-  currentIndex = Math.max(0, currentIndex - 1);
-  showImage();
-});
-
-document.getElementById('skip-btn').addEventListener('click', () => {
-  currentIndex++;
-  showImage();
-});
-
-document.querySelectorAll('.category-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    let filtered = idolData;
-    if (showUncategorizedOnly) filtered = idolData.filter(i => !i.category);
-    if (filtered.length === 0) return;
-    const idol = filtered[currentIndex];
-    idol.category = btn.dataset.category;
-    currentIndex++;
-    showImage();
-  });
-});
-
-uncategorizedToggle.addEventListener('click', () => {
-  showUncategorizedOnly = !showUncategorizedOnly;
-  uncategorizedToggle.textContent = showUncategorizedOnly ? 'Showing Uncategorized Only' : 'Show Uncategorized Only';
-  currentIndex = 0;
-  showImage();
-});
-
-// 4️⃣ Save to Idol-Categorizer repo
-document.getElementById('save-btn').addEventListener('click', async () => {
-  const updatedLinks = idolData.map(i => [i.name, i.url, i.thumb, i.category].join(',')).join('\n');
-  statusEl.textContent = 'Saving...';
-
-  const resp = await fetch('https://api.github.com/repos/beltedblinds/Idol-Categorizer/dispatches', {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/vnd.github+json',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      event_type: 'save_categorized',
-      client_payload: { updated_file: updatedLinks }
-    })
-  });
-
-  if (resp.ok) {
-    statusEl.textContent = '✅ Save event sent — check Actions tab!';
-  } else {
-    statusEl.textContent = '❌ Save failed — check workflow logs.';
+    if (resp.ok) {
+      status.textContent = "✅ Save dispatched! Check Actions tab in your repo.";
+    } else {
+      status.textContent = "❌ Save failed — check workflow logs.";
+    }
+  } catch (e) {
+    console.error(e);
+    status.textContent = "❌ Save failed — network or proxy issue.";
   }
 });
 
-loadLinks();
+init();
 </script>
 </body>
 </html>
