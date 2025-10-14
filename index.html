@@ -25,9 +25,10 @@
   }
   .controls {
     display: flex;
-    gap: 1rem;
     flex-wrap: wrap;
     justify-content: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
   }
   button {
     font-size: 1.25rem;
@@ -40,11 +41,11 @@
     transition: background 0.2s;
   }
   button:hover { background: #666; }
-  #skip {
-    background: #aa3333;
+  #skipBtn {
+    background: #a00;
   }
-  #skip:hover {
-    background: #cc4444;
+  #skipBtn:hover {
+    background: #c00;
   }
   #progress {
     margin-top: 1rem;
@@ -62,46 +63,32 @@
   <h1>🎶 Idol Categorizer</h1>
   <div id="imageContainer"><p>Loading images...</p></div>
   <div class="controls" id="categoryButtons" style="display:none;"></div>
+  <button id="skipBtn" style="display:none;">Skip</button>
   <div id="progress"></div>
   <button id="download">Download Updated File</button>
 
 <script>
-/* 🔧 CUSTOMIZABLE CATEGORY LIST — edit this array freely! */
-const categories = ["A", "B", "C", "D", "E"];
-// Example: const categories = ["Female Solo", "Male Group", "Rookie", "Disbanded", "Other"];
-
 const rawUrl = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt";
+const categoriesUrl = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/categories.txt";
+
 let lines = [];
 let currentIndex = 0;
 let categorized = {};
 let uncategorized = [];
-
-/* Dynamically create buttons */
-function createCategoryButtons() {
-  const container = document.getElementById("categoryButtons");
-  container.innerHTML = "";
-
-  // Create category buttons
-  categories.forEach(cat => {
-    const btn = document.createElement("button");
-    btn.textContent = cat;
-    btn.dataset.cat = cat;
-    btn.addEventListener("click", () => handleCategory(cat));
-    container.appendChild(btn);
-  });
-
-  // Add Skip button
-  const skipBtn = document.createElement("button");
-  skipBtn.id = "skip";
-  skipBtn.textContent = "Skip";
-  skipBtn.addEventListener("click", skipImage);
-  container.appendChild(skipBtn);
-}
+let categories = [];
 
 async function init() {
-  const res = await fetch(rawUrl);
-  const text = await res.text();
-  lines = text.split(/\r?\n/).filter(l => l.trim().length);
+  const [catRes, idolsRes] = await Promise.all([
+    fetch(categoriesUrl),
+    fetch(rawUrl)
+  ]);
+
+  const catText = await catRes.text();
+  categories = catText.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  renderCategoryButtons();
+
+  const idolText = await idolsRes.text();
+  lines = idolText.split(/\r?\n/).filter(l => l.trim().length);
 
   // Identify only lines with fewer than 4 valid fields
   uncategorized = lines
@@ -113,16 +100,29 @@ async function init() {
     return;
   }
 
-  createCategoryButtons();
   loadProgress();
   showCurrent();
   document.getElementById("categoryButtons").style.display = "flex";
+  document.getElementById("skipBtn").style.display = "inline-block";
+}
+
+function renderCategoryButtons() {
+  const container = document.getElementById("categoryButtons");
+  container.innerHTML = "";
+  categories.forEach(cat => {
+    const btn = document.createElement("button");
+    btn.textContent = cat;
+    btn.dataset.cat = cat;
+    btn.onclick = () => handleCategory(cat);
+    container.appendChild(btn);
+  });
 }
 
 function showCurrent() {
   if (currentIndex >= uncategorized.length) {
     document.getElementById("imageContainer").innerHTML = "<p>✅ Categorization complete!</p>";
     document.getElementById("categoryButtons").style.display = "none";
+    document.getElementById("skipBtn").style.display = "none";
     document.getElementById("download").style.display = "inline-block";
     updateFile();
     return;
@@ -146,7 +146,6 @@ function handleCategory(cat) {
   const { i, line } = obj;
   const parts = line.split(",").map(p => p.trim()).filter(Boolean);
 
-  // Add category as 4th field
   if (parts.length === 3) {
     lines[i] = `${parts[0]}, ${parts[1]}, ${parts[2]}, ${cat}`;
   } else if (parts.length === 2) {
@@ -161,8 +160,7 @@ function handleCategory(cat) {
   showCurrent();
 }
 
-/* Skip current image without assigning category */
-function skipImage() {
+function skipCurrent() {
   currentIndex++;
   saveProgress();
   showCurrent();
@@ -212,6 +210,8 @@ function loadProgress() {
       .filter(obj => obj.line.split(",").filter(Boolean).length < 4);
   }
 }
+
+document.getElementById("skipBtn").addEventListener("click", skipCurrent);
 
 init();
 </script>
