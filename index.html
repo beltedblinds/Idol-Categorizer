@@ -77,8 +77,13 @@ async function init() {
 
   // Identify only lines with fewer than 4 valid fields
   uncategorized = lines
-    .map((line, i) => ({ line, i }))
-    .filter(obj => obj.line.split(",").filter(Boolean).length < 4);
+  .map((line, i) => ({ line, i }))
+  .filter(obj => {
+    const parts = obj.line.split(",").map(p => p.trim());
+    const category = parts[3] || "";
+    return category === "";
+  });
+
 
   if (!uncategorized.length) {
     document.getElementById("imageContainer").innerHTML = "<p>All images are already categorized 🎉</p>";
@@ -141,7 +146,7 @@ async function updateFile() {
       method: "POST",
       headers: {
         "Accept": "application/vnd.github+json",
-        "Authorization": "Bearer GITHUB_TOKEN_PLACEHOLDER",
+        "Authorization": "Bearer " + prompt("Enter your GitHub token (temporary use)"),
       },
       body: JSON.stringify({
         event_type: "update_links",
@@ -151,9 +156,10 @@ async function updateFile() {
   );
 
   if (response.ok) {
-    alert("✅ Updated file sent to GitHub — the main repo will update shortly!");
+    alert("✅ Update sent successfully! Check Actions tab in Idol-Categorizer.");
   } else {
-    alert("❌ Failed to send update. Check your GH_TOKEN or permissions.");
+    const err = await response.text();
+    alert("❌ Failed to send update:\n" + err);
   }
 }
 
