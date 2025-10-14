@@ -1,110 +1,562 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>🎶 Idol Categorizer</title>
+<title>Idol Categorizer</title>
 <style>
-  body {
-    font-family: system-ui, sans-serif;
-    background: #111;
-    color: #eee;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
+  :root{
+    --bg:#0b0b0b; --card:#151515; --muted:#aaa; --accent:#ff7bcb;
+    --accent-2:#b57aff; --glass: rgba(255,255,255,0.03);
   }
-  img {
-    max-width: 80vw;
-    max-height: 60vh;
-    border-radius: 1rem;
-    box-shadow: 0 0 20px #0008;
-    margin: 1rem 0;
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,-apple-system, sans-serif;background:linear-gradient(180deg,#071017 0%, #0b0710 100%);color:#eee}
+  .app{max-width:1100px;margin:18px auto;padding:18px;box-sizing:border-box}
+  header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+  h1{margin:0;font-size:20px;background:linear-gradient(90deg,var(--accent),var(--accent-2));-webkit-background-clip:text;color:transparent}
+  .row{display:flex;gap:8px;align-items:center}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  input[type="file"]{display:none}
+  .btn{background:var(--card);border:1px solid #333;padding:8px 12px;border-radius:8px;color:var(--muted);cursor:pointer}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#111;border:none}
+  #imageContainer{display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--glass);padding:18px;border-radius:12px;min-height:360px}
+  img.preview{max-width:84vw;max-height:62vh;border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,0.8);border:1px solid rgba(255,255,255,0.03)}
+  #meta{margin-top:10px;color:var(--muted);font-size:13px}
+  #categoryButtons{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;justify-content:center}
+  .cat-btn{background:var(--card);border:1px solid #333;color:var(--muted);padding:8px 10px;border-radius:8px;cursor:pointer}
+  .cat-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .sidebar{display:flex;gap:10px;align-items:center}
+  #status{margin-left:8px;font-size:13px;color:var(--muted)}
+  #progress{margin-top:10px;color:var(--muted)}
+  .tog {display:inline-flex;align-items:center;gap:8px}
+  .small{font-size:13px;padding:6px 8px}
+  footer{margin-top:18px;color:var(--muted);font-size:13px}
+  /* responsive */
+  @media (min-width:900px){
+    .layout{display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start}
+    #imageContainer{min-height:520px}
   }
-  button {
-    font-size: 1rem;
-    padding: 0.5rem 1rem;
-    margin: 0.25rem;
-    border-radius: 0.5rem;
-    border: none;
-    background: #444;
-    color: white;
-    cursor: pointer;
-    transition: background 0.2s;
+  @media (max-width:899px){
+    .layout{display:block}
   }
-  button:hover { background: #666; }
-  #status {
-    margin-top: 1rem;
-    font-size: 0.9rem;
-    opacity: 0.8;
-  }
+  /* left/right lists for quick preview (thin) */
+  .thin-list{max-height:70vh;overflow:auto;padding:6px;background:transparent;border-radius:8px}
+  .list-item{display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px;cursor:pointer}
+  .list-item:hover{background:rgba(255,255,255,0.02)}
+  .small-thumb{width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid #222}
 </style>
 </head>
 <body>
-  <h1>🎶 Idol Categorizer</h1>
-  <div id="imageContainer">Loading images...</div>
-  <div id="controls"></div>
-  <div id="status"></div>
-  <button id="saveBtn">💾 Save Categorized File</button>
+  <div class="app">
+    <header>
+      <h1>🎶 Idol Categorizer</h1>
+      <div style="flex:1"></div>
+      <div class="row sidebar">
+        <!-- allow user to upload their local categorized file to merge -->
+        <label class="btn small" id="uploadLocalBtn">Upload local categorized file</label>
+        <input id="localFileInput" type="file" accept=".txt" />
+        <button class="btn small" id="reloadRemoteBtn">Reload remote sources</button>
+        <div id="status">Initializing…</div>
+      </div>
+    </header>
+
+    <div class="layout">
+      <!-- Main viewer -->
+      <main>
+        <div id="imageContainer">
+          <div id="imageInner">
+            <p id="loadingText">Loading images…</p>
+          </div>
+          <div id="meta"></div>
+          <div id="progress"></div>
+
+          <div id="categoryButtons" style="display:none"></div>
+
+          <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center">
+            <button class="btn" id="prevBtn">◀ Previous</button>
+            <button class="btn" id="skipBtn">⏭ Skip</button>
+            <button class="btn primary" id="saveBtn">💾 Save Progress (download)</button>
+            <button class="btn" id="downloadRawBtn" style="display:none">⬇ Download current source</button>
+            <label class="btn" id="uploadCategorizedBtn">Upload categorized file</label>
+            <input id="uploadCategorizedInput" type="file" accept=".txt" style="display:none" />
+            <div style="display:flex;align-items:center;gap:8px">
+              <label class="tog"><input id="uncatOnly" type="checkbox"> Show uncategorized only</label>
+            </div>
+          </div>
+
+          <div id="saveIndicator" style="margin-top:10px;color:var(--muted)"></div>
+        </div>
+      </main>
+
+      <!-- Right column: catalog preview + categories list -->
+      <aside>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <strong style="font-size:14px">Categories</strong>
+            <button class="btn small" id="refreshCatsBtn">Reload categories</button>
+          </div>
+          <div id="catsList" class="thin-list" style="background:transparent;border:1px solid rgba(255,255,255,0.02);padding:8px;border-radius:8px;min-height:88px"></div>
+
+          <div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between">
+            <strong style="font-size:14px">Catalog preview</strong>
+            <div style="font-size:12px;color:var(--muted)"><span id="countTotal">0</span> images</div>
+          </div>
+          <div id="catalogPreview" class="thin-list" style="border:1px solid rgba(255,255,255,0.02);padding:8px;border-radius:8px"></div>
+        </div>
+      </aside>
+    </div>
+
+    <footer>
+      Loads canonical file from <code>beltedblinds/idols-media-01</code> and merges with your local Idol-Categorizer file (if present).
+    </footer>
+  </div>
 
 <script>
-const idolLinksUrl = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt";
-let lines = [];
+(async function(){
+  // CONFIG: remote raw files
+  const REMOTE_BASE = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/";
+  const REMOTE_LIST_URL = REMOTE_BASE + "idol_gallery_links.txt";
+  // attempt to load categories.txt from this repo (Idol-Categorizer)
+  const CATS_REMOTE = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/categories.txt";
 
-// Example categories file (you could also fetch a categories.txt)
-const categories = ["A", "B", "C", "D", "E"];
+  // STATE
+  let baseLines = [];          // lines from idols-media-01 (canonical order)
+  let localLines = [];         // lines from Idol-Categorizer (if present)
+  let merged = [];             // merged entries: {folder, raw, thumb, category, sourceLine}
+  let currentIndex = 0;        // index into 'viewList' - the list of items we're cycling through
+  let viewList = [];           // reference to merged or filtered merged (for uncat-only)
+  let categories = [];         // categories array
+  let history = [];            // stack of visited indices for previous navigation
+  let saveIndicatorEl = document.getElementById("saveIndicator");
 
-async function init() {
-  const res = await fetch(idolLinksUrl);
-  const text = await res.text();
-  lines = text.split(/\r?\n/).filter(l => l.trim().length);
-  document.getElementById("imageContainer").innerHTML = `<p>Loaded ${lines.length} lines.</p>`;
-  buildCategoryButtons();
-}
-
-function buildCategoryButtons() {
-  const container = document.getElementById("controls");
-  categories.forEach(cat => {
-    const btn = document.createElement("button");
-    btn.textContent = cat;
-    btn.onclick = () => alert(`(placeholder) Assign category ${cat}`);
-    container.appendChild(btn);
-  });
-}
-
-document.getElementById("saveBtn").addEventListener("click", async () => {
-  const updatedFile = lines.join("\n");
-  const status = document.getElementById("status");
-  status.textContent = "⏳ Sending to GitHub...";
-  const payload = {
-    event_type: "save_categorized",
-    client_payload: { updated_file: updatedFile }
+  const els = {
+    status: document.getElementById("status"),
+    imageInner: document.getElementById("imageInner"),
+    meta: document.getElementById("meta"),
+    progress: document.getElementById("progress"),
+    catButtons: document.getElementById("categoryButtons"),
+    prevBtn: document.getElementById("prevBtn"),
+    skipBtn: document.getElementById("skipBtn"),
+    saveBtn: document.getElementById("saveBtn"),
+    uploadLocalBtn: document.getElementById("uploadLocalBtn"),
+    localFileInput: document.getElementById("localFileInput"),
+    reloadRemoteBtn: document.getElementById("reloadRemoteBtn"),
+    uncategorizedOnly: document.getElementById("uncatOnly"),
+    catsList: document.getElementById("catsList"),
+    catalogPreview: document.getElementById("catalogPreview"),
+    countTotal: document.getElementById("countTotal"),
+    refreshCatsBtn: document.getElementById("refreshCatsBtn"),
+    uploadCategorizedBtn: document.getElementById("uploadCategorizedBtn"),
+    uploadCategorizedInput: document.getElementById("uploadCategorizedInput")
   };
-  try {
-    const resp = await fetch("https://github-rest-proxy.pages.dev/dispatch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        owner: "beltedblinds",
-        repo: "Idol-Categorizer",
-        event_type: "save_categorized",
-        client_payload: { updated_file: updatedFile }
-      })
-    });
-    if (resp.ok) {
-      status.textContent = "✅ Save dispatched! Check Actions tab in your repo.";
-    } else {
-      status.textContent = "❌ Save failed — check workflow logs.";
-    }
-  } catch (e) {
-    console.error(e);
-    status.textContent = "❌ Save failed — network or proxy issue.";
-  }
-});
 
-init();
+  // utility to parse a line into fields (safe-ish)
+  function parseLine(line){
+    // split by comma, but don't lose extra commas in name if they ever exist.
+    // We'll assume the format is: name, raw, thumb, category (category may be empty)
+    const parts = line.split(",").map(p => p.trim());
+    const folder = parts[0] || "";
+    const raw = parts[1] || "";
+    const thumb = parts[2] || "";
+    const category = parts.slice(3).join(", ").trim(); // join extras back to category if commas there
+    return { folder, raw, thumb, category, rawLine: line };
+  }
+
+  function lineFromObj(o){
+    // ensure 4 fields separated by ", "
+    const cat = o.category || "";
+    return `${o.folder}, ${o.raw}, ${o.thumb || ""}, ${cat}`;
+  }
+
+  // fetch remote text helper
+  async function fetchText(url){
+    try {
+      const r = await fetch(url, {cache: "no-store"});
+      if (!r.ok) throw new Error("Failed to fetch " + url);
+      return await r.text();
+    } catch (e){
+      console.warn("Fetch failed:", url, e);
+      return null;
+    }
+  }
+
+  // load categories from categories.txt (remote attempt first, fallback default)
+  async function loadCategories(){
+    categories = ["A","B","C","D","E"]; // fallback
+    const txt = await fetchText(CATS_REMOTE);
+    if (txt){
+      categories = txt.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+    }
+    renderCategoriesList();
+    renderCategoryButtons();
+  }
+
+  function renderCategoriesList(){
+    els.catsList.innerHTML = "";
+    categories.forEach(c=>{
+      const div = document.createElement("div");
+      div.className = "list-item";
+      div.textContent = c;
+      els.catsList.appendChild(div);
+    });
+  }
+
+  // Render category buttons used to tag
+  function renderCategoryButtons(){
+    els.catButtons.innerHTML = "";
+    categories.forEach(c=>{
+      const b = document.createElement("button");
+      b.className = "cat-btn";
+      b.textContent = c;
+      b.addEventListener("click", ()=> assignCategory(c));
+      els.catButtons.appendChild(b);
+    });
+    els.catButtons.style.display = categories.length ? "flex" : "none";
+  }
+
+  // load remote canonical list and local file merging
+  async function loadLists(remoteUrl = REMOTE_LIST_URL, localUrl = null){
+    setStatus("Loading canonical list…");
+    const remoteText = await fetchText(remoteUrl);
+    if (!remoteText){
+      setStatus("Failed to load canonical list.");
+      return;
+    }
+    baseLines = remoteText.split(/\r?\n/).filter(Boolean);
+
+    // try to load local Idol-Categorizer file from this repo (raw)
+    localLines = [];
+    const localRemote = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_gallery_links.txt";
+    const localText = await fetchText(localRemote);
+    if (localText) {
+      localLines = localText.split(/\r?\n/).filter(Boolean);
+      setStatus("Loaded canonical + local Categorizer file");
+    } else {
+      // also might have a previously saved version in localStorage, we will merge that later
+      setStatus("Loaded canonical list (no remote local file found)");
+    }
+
+    // If user previously uploaded a categorized file (via input), that will be merged later
+    mergeLists();
+  }
+
+  function mergeLists(){
+    // create map from localLines by raw URL for category
+    const localMap = new Map();
+    localLines.forEach(l=>{
+      const p = parseLine(l);
+      if (p.raw) localMap.set(p.raw, p);
+    });
+
+    // also try from previously saved progress in localStorage (more recent)
+    const saved = JSON.parse(localStorage.getItem("idol_categorizer_lines") || "null");
+    if (saved && Array.isArray(saved) && saved.length){
+      saved.forEach(l=>{
+        const p = parseLine(l);
+        if (p.raw) localMap.set(p.raw, p);
+      });
+    }
+
+    // Build merged array in the canonical order of baseLines
+    merged = baseLines.map(line => {
+      const p = parseLine(line);
+      const local = localMap.get(p.raw);
+      return {
+        folder: p.folder,
+        raw: p.raw,
+        thumb: p.thumb,
+        category: local ? (local.category || "") : (p.category || ""),
+        sourceLine: line
+      };
+    });
+
+    // If there are any categorized entries that aren't in baseLines, append them
+    // (keeps any stray manual entries)
+    const baseRaws = new Set(baseLines.map(l=>parseLine(l).raw));
+    localLines.forEach(l=>{
+      const p = parseLine(l);
+      if (p.raw && !baseRaws.has(p.raw)){
+        merged.push({folder:p.folder, raw:p.raw, thumb:p.thumb, category:p.category || "", sourceLine:l});
+      }
+    });
+
+    // build viewList and render UI
+    applyUncatFilter();
+    renderCatalogPreview();
+    currentIndex = 0;
+    history = [];
+    renderCurrent();
+  }
+
+  function applyUncatFilter(){
+    if (els.uncategorizedOnly.checked){
+      viewList = merged.map((m,i)=>({...m, __idx:i})).filter(it => !it.category || it.category.trim()==="");
+    } else {
+      viewList = merged.map((m,i)=>({...m, __idx:i}));
+    }
+    els.countTotal.textContent = viewList.length;
+  }
+
+  function renderCatalogPreview(){
+    els.catalogPreview.innerHTML = "";
+    merged.forEach((m, i) => {
+      const row = document.createElement("div");
+      row.className = "list-item";
+      const thumb = document.createElement("img");
+      thumb.className = "small-thumb";
+      thumb.src = m.thumb || m.raw;
+      const txt = document.createElement("div");
+      txt.style.fontSize = "13px"; txt.style.color = "var(--muted)";
+      txt.textContent = (m.folder || "—") + (m.category ? ` · ${m.category}` : "");
+      row.appendChild(thumb); row.appendChild(txt);
+      row.addEventListener("click", () => {
+        // find in viewList and jump
+        const idx = viewList.findIndex(v => v.__idx === i);
+        if (idx >= 0){ pushHistory(currentIndex); currentIndex = idx; renderCurrent(); }
+      });
+      els.catalogPreview.appendChild(row);
+    });
+  }
+
+  function renderCurrent(){
+    applyUncatFilter(); // refresh view list if toggle changed
+    if (!viewList.length){
+      document.getElementById("imageInner").innerHTML = `<p id="loadingText">No images match (try turning off "uncategorized only").</p>`;
+      els.progress.textContent = "";
+      els.meta.textContent = "";
+      return;
+    }
+    // clamp currentIndex
+    if (currentIndex < 0) currentIndex = 0;
+    if (currentIndex >= viewList.length) currentIndex = viewList.length - 1;
+
+    const item = viewList[currentIndex];
+    const idx = item.__idx;
+    // show raw image
+    const html = document.createElement("div");
+    html.innerHTML = `
+      <h3 style="margin:0 0 8px 0">${item.folder || "Unknown"}</h3>
+    `;
+    const img = document.createElement("img");
+    img.className = "preview";
+    img.src = item.raw || item.thumb || "";
+    img.alt = item.folder || "";
+    img.onerror = () => {
+      // fallback to thumb if raw fails
+      if (img.src !== (item.thumb || "")) img.src = item.thumb || "";
+    };
+    // replace inner
+    const container = document.getElementById("imageInner");
+    container.innerHTML = "";
+    container.appendChild(html);
+    container.appendChild(img);
+
+    // meta & progress
+    els.meta.textContent = `Index: ${currentIndex+1} / ${viewList.length} · Source index: ${idx+1} · Category: ${item.category || "(uncategorized)"}`;
+    els.progress.textContent = `Showing image ${currentIndex+1} of ${viewList.length}`;
+    renderCategoryButtons(); // ensure buttons visible
+    renderCatalogPreview();
+  }
+
+  function pushHistory(idx){
+    history.push(idx);
+    if (history.length > 2000) history.shift();
+  }
+
+  function prev(){
+    if (!history.length){
+      // if we have not visited previous images, just step back in index
+      if (currentIndex > 0) currentIndex--;
+    } else {
+      currentIndex = history.pop();
+    }
+    renderCurrent();
+  }
+
+  // assign a category to the currently viewed item and auto-advance
+  function assignCategory(cat){
+    if (!viewList.length) return;
+    const entry = viewList[currentIndex];
+    const globalIdx = entry.__idx;
+    // update merged
+    merged[globalIdx].category = cat;
+    // update localLines / local storage representation
+    // we keep merged order and will produce a final file from merged
+    saveProgressToLocal(false); // update localStorage but don't auto-download
+    // automatically advance (push history first)
+    pushHistory(currentIndex);
+    // move to next; if at end, mark complete
+    if (currentIndex < viewList.length - 1) currentIndex++;
+    else {
+      // if we are at the end, try to find next uncategorized if uncategorizedOnly
+      if (els.uncategorizedOnly.checked) {
+        // recompute viewList and find next uncategorized
+        applyUncatFilter();
+        // if none left, stay
+      }
+    }
+    renderCurrent();
+  }
+
+  function skip(){
+    if (!viewList.length) return;
+    pushHistory(currentIndex);
+    if (currentIndex < viewList.length - 1) currentIndex++;
+    renderCurrent();
+  }
+
+  function saveProgressToLocal(download=true){
+    // build file lines in canonical order: replicate idols-media-01 canonical order,
+    // but with categories inserted from merged. Keep formatting "folder, raw, thumb, category"
+    const outLines = merged.map(m => lineFromObj(m));
+    // persist to localStorage for page sessions
+    localStorage.setItem("idol_categorizer_lines", JSON.stringify(outLines));
+    if (download) {
+      // create blob and prompt download
+      const blob = new Blob([outLines.join("\n")], {type:"text/plain;charset=utf-8"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "idol_gallery_links.txt";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      saveIndicatorEl.textContent = "✅ Downloaded updated idol_gallery_links.txt";
+      setTimeout(()=>saveIndicatorEl.textContent = "", 3000);
+    } else {
+      saveIndicatorEl.textContent = "Saved locally";
+      setTimeout(()=>saveIndicatorEl.textContent = "", 1500);
+    }
+  }
+
+  // allow user to upload a categorized file (to merge newer categories)
+  function handleLocalFileUpload(file){
+    const reader = new FileReader();
+    reader.onload = e => {
+      const txt = e.target.result;
+      const arr = txt.split(/\r?\n/).filter(Boolean);
+      // override localLines and re-merge
+      localLines = arr;
+      // clear local storage so it doesn't conflict (we will write to it on save)
+      mergeLists();
+      saveIndicatorEl.textContent = "Loaded uploaded categorized file and merged";
+      setTimeout(()=>saveIndicatorEl.textContent = "", 1800);
+    };
+    reader.readAsText(file, "utf-8");
+  }
+
+  // file input elements hooking
+  document.getElementById("localFileInput").addEventListener("change", (ev)=>{
+    const f = ev.target.files[0];
+    if (f) handleLocalFileUpload(f);
+  });
+  document.getElementById("uploadCategorizedBtn").addEventListener("click", ()=>{
+    document.getElementById("uploadCategorizedInput").click();
+  });
+  document.getElementById("uploadCategorizedInput").addEventListener("change", (ev)=>{
+    const f = ev.target.files[0];
+    if (f) handleLocalFileUpload(f);
+  });
+
+  // Prev / Skip / Save bindings
+  els.prevBtn.addEventListener("click", ()=>{
+    prev();
+  });
+  els.skipBtn.addEventListener("click", ()=>{
+    skip();
+  });
+  els.saveBtn.addEventListener("click", ()=>{
+    // save and download
+    try{
+      saveProgressToLocal(true);
+    }catch(e){
+      console.error(e);
+      saveIndicatorEl.textContent = "❌ Save failed — check console";
+      setTimeout(()=>saveIndicatorEl.textContent = "",3000);
+    }
+  });
+
+  // upload local file UI
+  document.getElementById("uploadLocalBtn").addEventListener("click", ()=>{
+    document.getElementById("localFileInput").click();
+  });
+
+  // reload remote sources
+  els.reloadRemoteBtn.addEventListener("click", async ()=>{
+    await loadLists();
+    saveIndicatorEl.textContent = "Reloaded remote canonical + local";
+    setTimeout(()=>saveIndicatorEl.textContent = "",1500);
+  });
+
+  els.refreshCatsBtn.addEventListener("click", async ()=>{
+    await loadCategories();
+    saveIndicatorEl.textContent = "Categories reloaded";
+    setTimeout(()=>saveIndicatorEl.textContent = "",1200);
+  });
+
+  // uncategorized only toggle
+  els.uncategorizedOnly.addEventListener("change", ()=>{
+    applyUncatFilter();
+    currentIndex = 0;
+    history = [];
+    renderCurrent();
+  });
+
+  // Clicking a category in right pane should scroll the list to show matching entries (bonus)
+  // We'll also support clicking the small category entries (no action needed)
+
+  // keyboard shortcuts
+  window.addEventListener("keydown", (e)=>{
+    if (e.key === "ArrowLeft") { prev(); }
+    if (e.key === "ArrowRight") { skip(); }
+    if (e.key === "s" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveProgressToLocal(true); }
+  });
+
+  // initial load
+  async function init(){
+    setStatus("Loading categories…");
+    await loadCategories();
+    setStatus("Loading lists…");
+    await loadLists();
+    setStatus("Ready");
+    // restore last viewing index if present
+    const savedState = JSON.parse(localStorage.getItem("idol_categorizer_state") || "{}");
+    if (savedState && typeof savedState.currentIndex === "number") {
+      // ensure within bounds after merge
+      currentIndex = Math.min(savedState.currentIndex, Math.max(0, (viewList.length - 1)));
+    }
+    renderCurrent();
+  }
+
+  // helper
+  function setStatus(s){
+    els.status.textContent = s;
+  }
+
+  // expose assignCategory to category buttons (we recreated them on each render, but keep function name)
+  window.assignCategory = assignCategory;
+
+  // persist light state (currentIndex) on unload
+  window.addEventListener("beforeunload", ()=>{
+    localStorage.setItem("idol_categorizer_state", JSON.stringify({currentIndex}));
+  });
+
+  // also allow clicking a category button on the category list to jump to first image of that category in the catalog preview
+  // and filter the catalog preview to that folder when clicked (optional UX)
+  els.catsList.addEventListener("click", (ev)=>{
+    const txt = ev.target.textContent;
+    if (!txt) return;
+    // scroll to first preview item with that category
+    const items = Array.from(els.catalogPreview.children);
+    const target = items.find(it => it.textContent.includes(txt));
+    if (target) target.scrollIntoView({behavior:"smooth"});
+  });
+
+  // load initial
+  await init();
+
+})();
 </script>
 </body>
 </html>
