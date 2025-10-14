@@ -16,7 +16,7 @@
     padding: 1rem;
   }
   h1 { margin: 0.5rem 0 1rem; }
-  img, video {
+  img {
     max-width: 80vw;
     max-height: 60vh;
     border-radius: 1rem;
@@ -31,8 +31,8 @@
     margin-bottom: 1rem;
   }
   button {
-    font-size: 1.2rem;
-    padding: 0.7rem 1.5rem;
+    font-size: 1.2rem; /* bigger text */
+    padding: 0.7rem 1.5rem; /* more touch area */
     border-radius: 0.75rem;
     border: none;
     background: #333;
@@ -46,26 +46,19 @@
     font-size: 0.9rem;
     opacity: 0.8;
   }
-  #save, #uncatOnly {
+  #save, #toggleUncat {
     background: #28a745;
+    margin: 0.5rem;
   }
   #uncatOnly.active {
     background: #555;
-  }
-  #sourceButtons button.active {
-    background: #007bff;
   }
 </style>
 </head>
 <body>
   <h1>🎶 Idol Categorizer</h1>
 
-  <div class="controls" id="sourceButtons">
-    <button id="mediaSource" class="active">🖼️ idols-media-01</button>
-    <button id="videoSource">🎥 idols-video-01</button>
-  </div>
-
-  <div id="imageContainer"><p>Loading...</p></div>
+  <div id="imageContainer"><p>Loading images...</p></div>
 
   <div class="controls" id="categoryButtons"></div>
 
@@ -79,26 +72,14 @@
   <div id="progress"></div>
 
 <script>
+const remoteLinks = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt";
+const localLinks = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_gallery_links.txt";
+const catsFile = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/categories.txt";
+
 let allLines = [];
 let categories = [];
 let uncategorizedOnly = false;
 let currentIndex = 0;
-let currentSource = "media";
-
-const sources = {
-  media: {
-    remote: "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt",
-    local: "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer-Test/main/idol_gallery_links.txt",
-    saveFile: "idol_gallery_links.txt"
-  },
-  video: {
-    remote: "https://raw.githubusercontent.com/beltedblinds/idols-video-01/main/idol_video_links.txt",
-    local: "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer-Test/main/idol_video_links.txt",
-    saveFile: "idol_video_links.txt"
-  }
-};
-
-const catsFile = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer-Test/main/categories.txt";
 
 async function loadText(url) {
   try {
@@ -110,21 +91,16 @@ async function loadText(url) {
   }
 }
 
-async function init(source = "media") {
-  currentSource = source;
-  document.getElementById("imageContainer").innerHTML = "<p>Loading items...</p>";
-
-  const src = sources[source];
+async function init() {
   const [remoteText, localText, catsText] = await Promise.all([
-    loadText(src.remote),
-    loadText(src.local),
+    loadText(remoteLinks),
+    loadText(localLinks),
     loadText(catsFile)
   ]);
 
   const remote = remoteText.split(/\r?\n/).filter(Boolean);
   const local = localText.split(/\r?\n/).filter(Boolean);
 
-  // 👇 identical merge logic to your working old version
   const normalize = str => str.replace(/\s+/g, "").replace("github.com", "raw.githubusercontent.com");
 
   const localMap = new Map(
@@ -139,6 +115,7 @@ async function init(source = "media") {
     const parts = line.split(",").map(x => x.trim());
     const [name, url, thumb, cat] = parts;
     const key = normalize(url);
+
     if (localMap.has(key)) {
       merged.push(localMap.get(key));
     } else {
@@ -150,13 +127,14 @@ async function init(source = "media") {
   categories = catsText.split(/\r?\n/).filter(Boolean);
   renderCategoryButtons();
 
+  // Automatically start at first uncategorized image
   const firstUncatIndex = allLines.findIndex(line => {
     const parts = line.split(",").map(x => x.trim());
     return parts.length < 4 || !parts[3];
   });
   currentIndex = firstUncatIndex >= 0 ? firstUncatIndex : 0;
 
-  showItem();
+  showImage();
 }
 
 function renderCategoryButtons() {
@@ -178,7 +156,7 @@ function filteredLines() {
   });
 }
 
-function showItem() {
+function showImage() {
   const list = filteredLines();
   if (currentIndex < 0) currentIndex = 0;
   if (currentIndex >= list.length) {
@@ -188,24 +166,12 @@ function showItem() {
   }
 
   const [name, url, thumb, cat] = list[currentIndex].split(",").map(x => x.trim());
-  let content = "";
-
-  if (currentSource === "video") {
-    content = `
-      <h3>${name}</h3>
-      <video src="${url}" autoplay loop muted playsinline onerror="this.style.display='none'"></video>
-      <p>Category: ${cat || "(none)"}</p>
-    `;
-  } else {
-    content = `
-      <h3>${name}</h3>
-      <img src="${url}" alt="${name}" onerror="this.style.display='none'">
-      <p>Category: ${cat || "(none)"}</p>
-    `;
-  }
-
-  document.getElementById("imageContainer").innerHTML = content;
-  document.getElementById("progress").textContent = `Item ${currentIndex + 1} of ${list.length}`;
+  document.getElementById("imageContainer").innerHTML = `
+    <h3>${name}</h3>
+    <img src="${url}" alt="${name}" onerror="this.style.display='none'">
+    <p>Category: ${cat || "(none)"}</p>
+  `;
+  document.getElementById("progress").textContent = `Image ${currentIndex + 1} of ${list.length}`;
 }
 
 function setCategory(cat) {
@@ -217,39 +183,25 @@ function setCategory(cat) {
     allLines[idx] = `${n}, ${u}, ${t}, ${cat}`;
   }
   currentIndex++;
-  showItem();
+  showImage();
 }
 
-document.getElementById("skip").onclick = () => { currentIndex++; showItem(); };
-document.getElementById("prev").onclick = () => { currentIndex--; showItem(); };
+document.getElementById("skip").onclick = () => { currentIndex++; showImage(); };
+document.getElementById("prev").onclick = () => { currentIndex--; showImage(); };
 document.getElementById("uncatOnly").onclick = e => {
   uncategorizedOnly = !uncategorizedOnly;
   e.target.classList.toggle("active", uncategorizedOnly);
   currentIndex = 0;
-  showItem();
+  showImage();
 };
 
 document.getElementById("save").onclick = () => {
-  const src = sources[currentSource];
   const blob = new Blob([allLines.join("\n")], { type: "text/plain" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = src.saveFile;
+  a.download = "idol_gallery_links.txt";
   a.click();
   URL.revokeObjectURL(a.href);
-};
-
-// 🔄 Source toggle buttons
-document.getElementById("mediaSource").onclick = () => {
-  document.getElementById("mediaSource").classList.add("active");
-  document.getElementById("videoSource").classList.remove("active");
-  init("media");
-};
-
-document.getElementById("videoSource").onclick = () => {
-  document.getElementById("videoSource").classList.add("active");
-  document.getElementById("mediaSource").classList.remove("active");
-  init("video");
 };
 
 init();
