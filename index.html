@@ -129,15 +129,16 @@ function showCurrent() {
   const { line } = uncategorized[currentIndex];
   const parts = line.split(",").map(x => x.trim());
   const name = parts[0];
-  const thumb = parts[2] || parts[1];
+  const raw = parts[1]; // Use full GIF or original image instead of thumbnail
 
   document.getElementById("imageContainer").innerHTML = `
     <h3>${name}</h3>
-    <img src="${thumb}" alt="${name}" onerror="this.style.display='none';">
+    <img src="${raw}" alt="${name}" onerror="this.style.display='none';">
   `;
   document.getElementById("progress").textContent =
     `Image ${currentIndex + 1} of ${uncategorized.length}`;
 }
+
 
 function handleCategory(cat) {
   const obj = uncategorized[currentIndex];
