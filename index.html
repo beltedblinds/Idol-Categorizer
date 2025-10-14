@@ -16,13 +16,14 @@
     padding: 1rem;
   }
   h1 { margin: 0.5rem 0 1rem; }
-  img {
+  img, video {
     max-width: 80vw;
     max-height: 60vh;
     border-radius: 1rem;
     box-shadow: 0 0 20px #0008;
     margin: 1rem 0;
   }
+  video { background: #000; }
   .controls {
     display: flex;
     flex-wrap: wrap;
@@ -31,8 +32,8 @@
     margin-bottom: 1rem;
   }
   button {
-    font-size: 1.2rem; /* bigger text */
-    padding: 0.7rem 1.5rem; /* more touch area */
+    font-size: 1.2rem;
+    padding: 0.7rem 1.5rem;
     border-radius: 0.75rem;
     border: none;
     background: #333;
@@ -53,10 +54,18 @@
   #uncatOnly.active {
     background: #555;
   }
+  #sourceButtons button.active {
+    background: #555;
+  }
 </style>
 </head>
 <body>
   <h1>🎶 Idol Categorizer</h1>
+
+  <div class="controls" id="sourceButtons">
+    <button id="btnMedia" class="active">🖼️ idols-media-01</button>
+    <button id="btnVideo">🎥 idols-video-01</button>
+  </div>
 
   <div id="imageContainer"><p>Loading images...</p></div>
 
@@ -72,8 +81,24 @@
   <div id="progress"></div>
 
 <script>
-const remoteLinks = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt";
-const localLinks = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_gallery_links.txt";
+let mode = "media"; // "media" or "video"
+
+function getLinks() {
+  if (mode === "media") {
+    return {
+      remote: "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt",
+      local: "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_gallery_links.txt",
+      saveName: "idol_gallery_links.txt"
+    };
+  } else {
+    return {
+      remote: "https://raw.githubusercontent.com/beltedblinds/idols-video-01/main/idol_video_links.txt",
+      local: "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_video_links.txt",
+      saveName: "idol_video_links.txt"
+    };
+  }
+}
+
 const catsFile = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/categories.txt";
 
 let allLines = [];
@@ -92,9 +117,11 @@ async function loadText(url) {
 }
 
 async function init() {
+  const { remote, local } = getLinks();
+
   const [remoteText, localText, catsText] = await Promise.all([
-    loadText(remoteLinks),
-    loadText(localLinks),
+    loadText(remote),
+    loadText(local),
     loadText(catsFile)
   ]);
 
@@ -127,7 +154,6 @@ async function init() {
   categories = catsText.split(/\r?\n/).filter(Boolean);
   renderCategoryButtons();
 
-  // Automatically start at first uncategorized image
   const firstUncatIndex = allLines.findIndex(line => {
     const parts = line.split(",").map(x => x.trim());
     return parts.length < 4 || !parts[3];
@@ -166,12 +192,23 @@ function showImage() {
   }
 
   const [name, url, thumb, cat] = list[currentIndex].split(",").map(x => x.trim());
-  document.getElementById("imageContainer").innerHTML = `
-    <h3>${name}</h3>
-    <img src="${url}" alt="${name}" onerror="this.style.display='none'">
-    <p>Category: ${cat || "(none)"}</p>
-  `;
-  document.getElementById("progress").textContent = `Image ${currentIndex + 1} of ${list.length}`;
+  const container = document.getElementById("imageContainer");
+
+  if (mode === "video") {
+    container.innerHTML = `
+      <h3>${name}</h3>
+      <video src="${url}" autoplay loop muted playsinline controls></video>
+      <p>Category: ${cat || "(none)"}</p>
+    `;
+  } else {
+    container.innerHTML = `
+      <h3>${name}</h3>
+      <img src="${url}" alt="${name}" onerror="this.style.display='none'">
+      <p>Category: ${cat || "(none)"}</p>
+    `;
+  }
+
+  document.getElementById("progress").textContent = `Item ${currentIndex + 1} of ${list.length}`;
 }
 
 function setCategory(cat) {
@@ -196,12 +233,27 @@ document.getElementById("uncatOnly").onclick = e => {
 };
 
 document.getElementById("save").onclick = () => {
+  const { saveName } = getLinks();
   const blob = new Blob([allLines.join("\n")], { type: "text/plain" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "idol_gallery_links.txt";
+  a.download = saveName;
   a.click();
   URL.revokeObjectURL(a.href);
+};
+
+document.getElementById("btnMedia").onclick = () => {
+  mode = "media";
+  document.getElementById("btnMedia").classList.add("active");
+  document.getElementById("btnVideo").classList.remove("active");
+  init();
+};
+
+document.getElementById("btnVideo").onclick = () => {
+  mode = "video";
+  document.getElementById("btnVideo").classList.add("active");
+  document.getElementById("btnMedia").classList.remove("active");
+  init();
 };
 
 init();
