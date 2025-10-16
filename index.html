@@ -96,6 +96,7 @@ let mode = "media";
 let allLines = [];
 let categories = [];
 let uncategorizedOnly = false;
+let cachedUncatList = null; // stores snapshot when filter is toggled on
 let currentIndex = 0;
 
 async function loadText(url) {
@@ -171,11 +172,10 @@ function renderCategoryButtons() {
 
 function filteredLines() {
   if (!uncategorizedOnly) return allLines;
-  return allLines.filter(l => {
-    const parts = l.split(",").map(x => x.trim());
-    return parts.length < 4 || !parts[3];
-  });
+  // Use cached snapshot when in uncategorized mode
+  return cachedUncatList || allLines;
 }
+
 
 function showImage() {
   const list = filteredLines();
@@ -243,9 +243,21 @@ document.getElementById("prev").onclick = () => { currentIndex--; showImage(); }
 document.getElementById("uncatOnly").onclick = e => {
   uncategorizedOnly = !uncategorizedOnly;
   e.target.classList.toggle("active", uncategorizedOnly);
+
+  if (uncategorizedOnly) {
+    // snapshot the current uncategorized lines
+    cachedUncatList = allLines.filter(l => {
+      const parts = l.split(",").map(x => x.trim());
+      return parts.length < 4 || !parts[3];
+    });
+  } else {
+    cachedUncatList = null; // clear snapshot
+  }
+
   currentIndex = 0;
   showImage();
 };
+
 
 document.getElementById("save").onclick = () => {
   const blob = new Blob([allLines.join("\n")], { type: "text/plain" });
