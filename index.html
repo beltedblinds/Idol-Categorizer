@@ -213,9 +213,30 @@ function setCategory(cat) {
     const [n, u, t] = allLines[idx].split(",").map(x => x.trim());
     allLines[idx] = `${n}, ${u}, ${t}, ${cat}`;
   }
-  currentIndex++;
+
+  // 🔧 FIX: Handle index properly when filtering uncategorized
+  if (uncategorizedOnly) {
+    // find the next uncategorized entry after the one we just categorized
+    const nextIndex = allLines.findIndex((l, i) => {
+      if (i <= idx) return false;
+      const parts = l.split(",").map(x => x.trim());
+      return parts.length < 4 || !parts[3];
+    });
+
+    if (nextIndex !== -1) {
+      // Jump directly to that next uncategorized entry
+      currentIndex = filteredLines().findIndex(l => l === allLines[nextIndex]);
+    } else {
+      // No more uncategorized items
+      currentIndex = filteredLines().length;
+    }
+  } else {
+    currentIndex++;
+  }
+
   showImage();
 }
+
 
 document.getElementById("skip").onclick = () => { currentIndex++; showImage(); };
 document.getElementById("prev").onclick = () => { currentIndex--; showImage(); };
