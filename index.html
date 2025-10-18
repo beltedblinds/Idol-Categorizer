@@ -164,7 +164,10 @@ function renderCategoryButtons() {
 
 function filteredLines() {
   if (!uncategorizedOnly) return allLines;
-  return cachedUncatList || allLines;
+  // Keep all images for session, even if they now have a category
+  return cachedUncatList || allLines.map((line, idx) => {
+    return line + `,__sessionIndex:${idx}`; // temporary marker to preserve order
+  });
 }
 
 function showImage() {
@@ -176,10 +179,16 @@ function showImage() {
     return;
   }
 
-  // Always get current line from allLines to reflect updated categories
-  let idxInAllLines = allLines.findIndex(l => l === list[currentIndex]);
-  const [name, url, thumb, cat] = allLines[idxInAllLines].split(",").map(x => x.trim());
+  // Get the correct index in allLines
+  const tempLine = list[currentIndex];
+  let idxInAllLines;
+  if (tempLine.includes("__sessionIndex:")) {
+    idxInAllLines = parseInt(tempLine.split("__sessionIndex:")[1]);
+  } else {
+    idxInAllLines = allLines.findIndex(l => l === tempLine);
+  }
 
+  const [name, url, thumb, cat] = allLines[idxInAllLines].split(",").map(x => x.trim());
   const container = document.getElementById("imageContainer");
 
   if (mode === "video") {
@@ -198,33 +207,24 @@ function showImage() {
   document.getElementById("progress").textContent = `Image ${currentIndex + 1} of ${list.length}`;
 }
 
+
 function setCategory(cat) {
   const list = filteredLines();
-  const target = list[currentIndex];
-  const idx = allLines.findIndex(l => l === target);
-  if (idx !== -1) {
-    const [n, u, t] = allLines[idx].split(",").map(x => x.trim());
-    allLines[idx] = `${n}, ${u}, ${t}, ${cat}`;
-  }
-
-  if (uncategorizedOnly) {
-    const nextIndex = allLines.findIndex((l, i) => {
-      if (i <= idx) return false;
-      const parts = l.split(",").map(x => x.trim());
-      return parts.length < 4 || !parts[3];
-    });
-
-    if (nextIndex !== -1) {
-      currentIndex = filteredLines().findIndex(l => l === allLines[nextIndex]);
-    } else {
-      currentIndex = filteredLines().length;
-    }
+  const tempLine = list[currentIndex];
+  let idxInAllLines;
+  if (tempLine.includes("__sessionIndex:")) {
+    idxInAllLines = parseInt(tempLine.split("__sessionIndex:")[1]);
   } else {
-    currentIndex++;
+    idxInAllLines = allLines.findIndex(l => l === tempLine);
   }
 
+  const [n, u, t] = allLines[idxInAllLines].split(",").map(x => x.trim());
+  allLines[idxInAllLines] = `${n}, ${u}, ${t}, ${cat}`;
+
+  currentIndex++;
   showImage();
 }
+
 
 document.getElementById("skip").onclick = () => { currentIndex++; showImage(); };
 document.getElementById("prev").onclick = () => { currentIndex--; showImage(); };
