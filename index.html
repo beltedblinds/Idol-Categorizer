@@ -82,9 +82,10 @@ let mode = "media";
 let allLines = [];
 let categories = [];
 let uncategorizedOnly = false;
-let cachedUncatList = null;
+let cachedUncatList = null; // now stores { line, idx }
 let currentIndex = 0;
 
+// Load text file
 async function loadText(url) {
   try {
     const r = await fetch(url + "?t=" + Date.now(), { cache: "no-store" });
@@ -96,6 +97,7 @@ async function loadText(url) {
   }
 }
 
+// Initialize
 async function init() {
   const [remoteText, localText, catsText] = await Promise.all([
     loadText(remoteLinks),
@@ -125,7 +127,6 @@ async function init() {
       let localLine = localMap.get(key);
       let [ln, lu, lthumb, lcat] = localLine.split(",").map(x => x.trim());
 
-      // 🔹 Sync thumbnail automatically if different
       const remoteThumb = thumb || "";
       if (lthumb !== remoteThumb) {
         lthumb = remoteThumb;
@@ -151,6 +152,7 @@ async function init() {
   showImage();
 }
 
+// Render category buttons
 function renderCategoryButtons() {
   const div = document.getElementById("categoryButtons");
   div.innerHTML = "";
@@ -162,12 +164,13 @@ function renderCategoryButtons() {
   });
 }
 
+// Return filtered lines
 function filteredLines() {
-  if (!uncategorizedOnly) return allLines;
-  return cachedUncatList; // always return the session snapshot
+  if (!uncategorizedOnly) return allLines.map((line, idx) => ({ line, idx }));
+  return cachedUncatList; // session snapshot
 }
 
-
+// Show current image/video
 function showImage() {
   const list = filteredLines();
   if (currentIndex < 0) currentIndex = 0;
@@ -177,11 +180,8 @@ function showImage() {
     return;
   }
 
-  // Get index in allLines to read the latest category
-  const targetLine = list[currentIndex];
-  const idxInAllLines = allLines.findIndex(l => l === targetLine);
-  const [name, url, thumb, cat] = allLines[idxInAllLines].split(",").map(x => x.trim());
-
+  const { idx } = list[currentIndex];
+  const [name, url, thumb, cat] = allLines[idx].split(",").map(x => x.trim());
   const container = document.getElementById("imageContainer");
 
   if (mode === "video") {
@@ -200,25 +200,19 @@ function showImage() {
   document.getElementById("progress").textContent = `Image ${currentIndex + 1} of ${list.length}`;
 }
 
+// Set category for current image
 function setCategory(cat) {
   const list = filteredLines();
-  const target = list[currentIndex];
-  const idx = allLines.findIndex(l => l === target);
+  const { idx } = list[currentIndex];
 
-  if (idx !== -1) {
-    const [n, u, t] = allLines[idx].split(",").map(x => x.trim());
-    allLines[idx] = `${n}, ${u}, ${t}, ${cat}`;
-  }
+  const [n, u, t] = allLines[idx].split(",").map(x => x.trim());
+  allLines[idx] = `${n}, ${u}, ${t}, ${cat}`;
 
-  // Move to next image in the filtered list
-  if (currentIndex < list.length - 1) {
-    currentIndex++;
-  }
-
+  if (currentIndex < list.length - 1) currentIndex++;
   showImage();
 }
 
-
+// Controls
 document.getElementById("skip").onclick = () => { currentIndex++; showImage(); };
 document.getElementById("prev").onclick = () => { currentIndex--; showImage(); };
 document.getElementById("uncatOnly").onclick = e => {
@@ -226,10 +220,12 @@ document.getElementById("uncatOnly").onclick = e => {
   e.target.classList.toggle("active", uncategorizedOnly);
 
   if (uncategorizedOnly) {
-    cachedUncatList = allLines.filter(l => {
-      const parts = l.split(",").map(x => x.trim());
-      return parts.length < 4 || !parts[3];
-    });
+    cachedUncatList = allLines
+      .map((line, idx) => ({ line, idx }))
+      .filter(obj => {
+        const parts = obj.line.split(",").map(x => x.trim());
+        return parts.length < 4 || !parts[3];
+      });
   } else {
     cachedUncatList = null;
   }
@@ -247,6 +243,7 @@ document.getElementById("save").onclick = () => {
   URL.revokeObjectURL(a.href);
 };
 
+// Switch sources
 function switchToMedia() {
   remoteLinks = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt";
   localLinks  = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_gallery_links.txt";
