@@ -31,8 +31,8 @@
     margin-bottom: 1rem;
   }
   button {
-    font-size: 1.2rem; /* bigger text */
-    padding: 0.7rem 1.5rem; /* more touch area */
+    font-size: 1.2rem;
+    padding: 0.7rem 1.5rem;
     border-radius: 0.75rem;
     border: none;
     background: #333;
@@ -41,31 +41,20 @@
     transition: background 0.2s, transform 0.1s;
   }
   button:hover { background: #666; transform: scale(1.03); }
-  #progress {
-    margin-top: 0.5rem;
-    font-size: 0.9rem;
-    opacity: 0.8;
-  }
-  #save, #toggleUncat {
-    background: #28a745;
-    margin: 0.5rem;
-  }
-  #uncatOnly.active {
-    background: #555;
-  }
+  #progress { margin-top: 0.5rem; font-size: 0.9rem; opacity: 0.8; }
+  #save, #toggleUncat { background: #28a745; margin: 0.5rem; }
+  #uncatOnly.active { background: #555; }
 </style>
 </head>
 <body>
   <h1>🎶 Idol Categorizer</h1>
 
-  <!-- source switch buttons (media/video) -->
   <div class="controls" id="sourceButtons" style="margin-bottom:0.5rem;">
     <button id="btnMedia" class="active">🖼️ idols-media-01</button>
     <button id="btnVideo">🎥 idols-video-01</button>
   </div>
 
   <div id="imageContainer"><p>Loading images...</p></div>
-
 
   <div class="controls" id="categoryButtons"></div>
 
@@ -79,13 +68,10 @@
   <div id="progress"></div>
 
 <script>
-// make these writable so we can switch between media/video
 let remoteLinks = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt";
 let localLinks  = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_gallery_links.txt";
-// current save filename (will be "idol_gallery_links.txt" for images, "idol_video_links.txt" for videos)
 let saveName = "idol_gallery_links.txt";
 
-// video repo sources (used only when switching mode)
 const videoRemoteLinks = "https://raw.githubusercontent.com/beltedblinds/idols-video-01/main/idol_video_links.txt";
 const videoLocalLinks  = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_video_links.txt";
 const videoSaveName    = "idol_video_links.txt";
@@ -96,12 +82,11 @@ let mode = "media";
 let allLines = [];
 let categories = [];
 let uncategorizedOnly = false;
-let cachedUncatList = null; // stores snapshot when filter is toggled on
+let cachedUncatList = null;
 let currentIndex = 0;
 
 async function loadText(url) {
   try {
-    // Add cache-buster and tell browser/CDN not to cache
     const r = await fetch(url + "?t=" + Date.now(), { cache: "no-store" });
     if (!r.ok) throw new Error("Not found");
     return await r.text();
@@ -110,7 +95,6 @@ async function loadText(url) {
     return "";
   }
 }
-
 
 async function init() {
   const [remoteText, localText, catsText] = await Promise.all([
@@ -122,10 +106,8 @@ async function init() {
   const remote = remoteText.split(/\r?\n/).filter(Boolean);
   const local  = localText.split(/\r?\n/).filter(Boolean);
 
-  const normalize = str =>
-    str.replace(/\s+/g, "").replace("github.com", "raw.githubusercontent.com");
+  const normalize = str => str.replace(/\s+/g, "").replace("github.com", "raw.githubusercontent.com");
 
-  // build local map by URL
   const localMap = new Map(
     local.map(line => {
       const parts = line.split(",").map(x => x.trim());
@@ -138,8 +120,19 @@ async function init() {
     const parts = line.split(",").map(x => x.trim());
     const [name, url, thumb, cat] = parts;
     const key = normalize(url);
+
     if (localMap.has(key)) {
-      merged.push(localMap.get(key));
+      let localLine = localMap.get(key);
+      let [ln, lu, lthumb, lcat] = localLine.split(",").map(x => x.trim());
+
+      // 🔹 Sync thumbnail automatically if different
+      const remoteThumb = thumb || "";
+      if (lthumb !== remoteThumb) {
+        lthumb = remoteThumb;
+        localLine = `${ln}, ${lu}, ${lthumb}, ${lcat || ""}`;
+      }
+
+      merged.push(localLine);
     } else {
       merged.push(`${name}, ${url}, ${thumb || ""}, ${cat || ""}`);
     }
@@ -158,7 +151,6 @@ async function init() {
   showImage();
 }
 
-
 function renderCategoryButtons() {
   const div = document.getElementById("categoryButtons");
   div.innerHTML = "";
@@ -172,10 +164,8 @@ function renderCategoryButtons() {
 
 function filteredLines() {
   if (!uncategorizedOnly) return allLines;
-  // Use cached snapshot when in uncategorized mode
   return cachedUncatList || allLines;
 }
-
 
 function showImage() {
   const list = filteredLines();
@@ -186,7 +176,7 @@ function showImage() {
     return;
   }
 
-    const [name, url, thumb, cat] = list[currentIndex].split(",").map(x => x.trim());
+  const [name, url, thumb, cat] = list[currentIndex].split(",").map(x => x.trim());
   const container = document.getElementById("imageContainer");
 
   if (mode === "video") {
@@ -214,9 +204,7 @@ function setCategory(cat) {
     allLines[idx] = `${n}, ${u}, ${t}, ${cat}`;
   }
 
-  // 🔧 FIX: Handle index properly when filtering uncategorized
   if (uncategorizedOnly) {
-    // find the next uncategorized entry after the one we just categorized
     const nextIndex = allLines.findIndex((l, i) => {
       if (i <= idx) return false;
       const parts = l.split(",").map(x => x.trim());
@@ -224,10 +212,8 @@ function setCategory(cat) {
     });
 
     if (nextIndex !== -1) {
-      // Jump directly to that next uncategorized entry
       currentIndex = filteredLines().findIndex(l => l === allLines[nextIndex]);
     } else {
-      // No more uncategorized items
       currentIndex = filteredLines().length;
     }
   } else {
@@ -237,7 +223,6 @@ function setCategory(cat) {
   showImage();
 }
 
-
 document.getElementById("skip").onclick = () => { currentIndex++; showImage(); };
 document.getElementById("prev").onclick = () => { currentIndex--; showImage(); };
 document.getElementById("uncatOnly").onclick = e => {
@@ -245,19 +230,17 @@ document.getElementById("uncatOnly").onclick = e => {
   e.target.classList.toggle("active", uncategorizedOnly);
 
   if (uncategorizedOnly) {
-    // snapshot the current uncategorized lines
     cachedUncatList = allLines.filter(l => {
       const parts = l.split(",").map(x => x.trim());
       return parts.length < 4 || !parts[3];
     });
   } else {
-    cachedUncatList = null; // clear snapshot
+    cachedUncatList = null;
   }
 
   currentIndex = 0;
   showImage();
 };
-
 
 document.getElementById("save").onclick = () => {
   const blob = new Blob([allLines.join("\n")], { type: "text/plain" });
@@ -268,7 +251,6 @@ document.getElementById("save").onclick = () => {
   URL.revokeObjectURL(a.href);
 };
 
-// --- Source switch helpers ---
 function switchToMedia() {
   remoteLinks = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt";
   localLinks  = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_gallery_links.txt";
@@ -277,7 +259,7 @@ function switchToMedia() {
   document.getElementById("btnVideo").classList.remove("active");
   mode = "media";
   currentIndex = 0;
-  init(); // reload & merge using same logic
+  init();
 }
 
 function switchToVideo() {
@@ -288,13 +270,11 @@ function switchToVideo() {
   document.getElementById("btnMedia").classList.remove("active");
   mode = "video";
   currentIndex = 0;
-  init(); // reload & merge using same logic
+  init();
 }
 
-// wire the buttons
 document.getElementById("btnMedia").onclick = switchToMedia;
 document.getElementById("btnVideo").onclick = switchToVideo;
-
 
 init();
 </script>
