@@ -164,8 +164,9 @@ function renderCategoryButtons() {
 
 function filteredLines() {
   if (!uncategorizedOnly) return allLines;
-  return cachedUncatList || allLines;
+  return cachedUncatList; // always return the session snapshot
 }
+
 
 function showImage() {
   const list = filteredLines();
@@ -176,7 +177,11 @@ function showImage() {
     return;
   }
 
-  const [name, url, thumb, cat] = list[currentIndex].split(",").map(x => x.trim());
+  // Get index in allLines to read the latest category
+  const targetLine = list[currentIndex];
+  const idxInAllLines = allLines.findIndex(l => l === targetLine);
+  const [name, url, thumb, cat] = allLines[idxInAllLines].split(",").map(x => x.trim());
+
   const container = document.getElementById("imageContainer");
 
   if (mode === "video") {
@@ -199,29 +204,20 @@ function setCategory(cat) {
   const list = filteredLines();
   const target = list[currentIndex];
   const idx = allLines.findIndex(l => l === target);
+
   if (idx !== -1) {
     const [n, u, t] = allLines[idx].split(",").map(x => x.trim());
     allLines[idx] = `${n}, ${u}, ${t}, ${cat}`;
   }
 
-  if (uncategorizedOnly) {
-    const nextIndex = allLines.findIndex((l, i) => {
-      if (i <= idx) return false;
-      const parts = l.split(",").map(x => x.trim());
-      return parts.length < 4 || !parts[3];
-    });
-
-    if (nextIndex !== -1) {
-      currentIndex = filteredLines().findIndex(l => l === allLines[nextIndex]);
-    } else {
-      currentIndex = filteredLines().length;
-    }
-  } else {
+  // Move to next image in the filtered list
+  if (currentIndex < list.length - 1) {
     currentIndex++;
   }
 
   showImage();
 }
+
 
 document.getElementById("skip").onclick = () => { currentIndex++; showImage(); };
 document.getElementById("prev").onclick = () => { currentIndex--; showImage(); };
