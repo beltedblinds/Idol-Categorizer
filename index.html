@@ -176,7 +176,10 @@ function showImage() {
     return;
   }
 
-  const [name, url, thumb, cat] = list[currentIndex].split(",").map(x => x.trim());
+  // Always get current line from allLines to reflect updated categories
+  let idxInAllLines = allLines.findIndex(l => l === list[currentIndex]);
+  const [name, url, thumb, cat] = allLines[idxInAllLines].split(",").map(x => x.trim());
+
   const container = document.getElementById("imageContainer");
 
   if (mode === "video") {
