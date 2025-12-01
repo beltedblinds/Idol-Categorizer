@@ -16,13 +16,14 @@
     padding: 1rem;
   }
   h1 { margin: 0.5rem 0 1rem; }
-  img {
+  img, video {
     max-width: 80vw;
     max-height: 60vh;
     border-radius: 1rem;
     box-shadow: 0 0 20px #0008;
     margin: 1rem 0;
   }
+  video { background: #000; }
   .controls {
     display: flex;
     flex-wrap: wrap;
@@ -143,7 +144,7 @@ async function init() {
     return parts.length < 4 || !parts[3];
   });
   currentIndex = firstUncatIndex >= 0 ? firstUncatIndex : 0;
-  showImage();
+  showMedia();
 }
 
 function renderCategoryButtons() {
@@ -162,7 +163,14 @@ function filteredLines() {
   return cachedUncatList;
 }
 
-function showImage() {
+function getMediaType(url) {
+  const ext = url.split(".").pop().toLowerCase();
+  if (["mp4", "webm", "ogg"].includes(ext)) return "video";
+  if (["gif", "jpg", "jpeg", "png", "webp"].includes(ext)) return "image";
+  return "unknown";
+}
+
+function showMedia() {
   const list = filteredLines();
   if (currentIndex < 0) currentIndex = 0;
   if (currentIndex >= list.length) {
@@ -174,7 +182,19 @@ function showImage() {
   const { idx } = list[currentIndex];
   const [name, url, thumb, cat] = allLines[idx].split(",").map(x => x.trim());
   const container = document.getElementById("imageContainer");
-  container.innerHTML = `<h3>${name}</h3><img src="${url}" alt="${name}" onerror="this.style.display='none'"><p>Category: ${cat || "(none)"}</p>`;
+  const type = getMediaType(url);
+
+  if (type === "video") {
+    container.innerHTML = `<h3>${name}</h3>
+      <video src="${url}" autoplay loop muted playsinline controls onerror="this.style.display='none'"></video>
+      <p>Category: ${cat || "(none)"}</p>`;
+  } else if (type === "image") {
+    container.innerHTML = `<h3>${name}</h3>
+      <img src="${url}" alt="${name}" onerror="this.style.display='none'">
+      <p>Category: ${cat || "(none)"}</p>`;
+  } else {
+    container.innerHTML = `<h3>${name}</h3><p>Unsupported media: ${url}</p>`;
+  }
 
   document.getElementById("progress").textContent = `Item ${currentIndex + 1} of ${list.length}`;
 }
@@ -185,11 +205,11 @@ function setCategory(cat) {
   const [n, u, t] = allLines[idx].split(",").map(x => x.trim());
   allLines[idx] = `${n}, ${u}, ${t}, ${cat}`;
   if (currentIndex < list.length - 1) currentIndex++;
-  showImage();
+  showMedia();
 }
 
-document.getElementById("skip").onclick = () => { currentIndex++; showImage(); };
-document.getElementById("prev").onclick = () => { currentIndex--; showImage(); };
+document.getElementById("skip").onclick = () => { currentIndex++; showMedia(); };
+document.getElementById("prev").onclick = () => { currentIndex--; showMedia(); };
 document.getElementById("uncatOnly").onclick = e => {
   uncategorizedOnly = !uncategorizedOnly;
   e.target.classList.toggle("active", uncategorizedOnly);
@@ -200,7 +220,7 @@ document.getElementById("uncatOnly").onclick = e => {
       })
     : null;
   currentIndex = 0;
-  showImage();
+  showMedia();
 };
 
 document.getElementById("save").onclick = () => {
