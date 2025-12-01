@@ -45,7 +45,7 @@
   #progress { margin-top: 0.5rem; font-size: 0.9rem; opacity: 0.8; }
   #save, #toggleUncat { background: #28a745; margin: 0.5rem; }
   #uncatOnly.active { background: #555; }
-  button.active { background: #666; } /* 🆕 visually indicate active tab */
+  button.active { background: #666; }
 </style>
 </head>
 <body>
@@ -193,7 +193,8 @@ function showImage() {
   const [name, url, thumb, cat] = allLines[idx].split(",").map(x => x.trim());
   const container = document.getElementById("imageContainer");
 
-  let type = mode === "media3" ? getMediaType(url) : mode;
+  // 🆕 Detect type for all media, including media1/2/3
+  let type = (mode === "video") ? "video" : getMediaType(url);
 
   if (type === "video") {
     container.innerHTML = `<h3>${name}</h3><video src="${url}" autoplay loop muted playsinline onerror="this.style.display='none'"></video><p>Category: ${cat || "(none)"}</p>`;
