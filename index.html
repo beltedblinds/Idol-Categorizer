@@ -16,13 +16,14 @@
     padding: 1rem;
   }
   h1 { margin: 0.5rem 0 1rem; }
-  img {
+  img, video {
     max-width: 80vw;
     max-height: 60vh;
     border-radius: 1rem;
     box-shadow: 0 0 20px #0008;
     margin: 1rem 0;
   }
+  video { background: #000; }
   .controls {
     display: flex;
     flex-wrap: wrap;
@@ -52,11 +53,12 @@
 
   <div class="controls" id="sourceButtons" style="margin-bottom:0.5rem;">
     <button id="btnMedia" class="active">🖼️ idols-media-01</button>
-    <button id="btnMedia2">🖼️ idols-media-02</button> <!-- 🆕 added new button -->
+    <button id="btnMedia2">🖼️ idols-media-02</button>
+    <button id="btnMedia3">🖼️🎥 idols-media-03</button>
     <button id="btnVideo">🎥 idols-video-01</button>
   </div>
 
-  <div id="imageContainer"><p>Loading images...</p></div>
+  <div id="imageContainer"><p>Loading items...</p></div>
   <div class="controls" id="categoryButtons"></div>
 
   <div class="controls">
@@ -73,9 +75,13 @@ let remoteLinks = "https://raw.githubusercontent.com/beltedblinds/idols-media-01
 let localLinks  = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_gallery_links.txt";
 let saveName = "idol_gallery_links.txt";
 
-const media2RemoteLinks = "https://raw.githubusercontent.com/beltedblinds/idols-media-02/main/idol_gallery_links_02.txt"; // 🆕
-const media2LocalLinks  = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_gallery_links_02.txt"; // 🆕
-const media2SaveName    = "idol_gallery_links_02.txt"; // 🆕
+const media2RemoteLinks = "https://raw.githubusercontent.com/beltedblinds/idols-media-02/main/idol_gallery_links_02.txt";
+const media2LocalLinks  = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_gallery_links_02.txt";
+const media2SaveName    = "idol_gallery_links_02.txt";
+
+const media3RemoteLinks = "https://raw.githubusercontent.com/beltedblinds/idols-media-03/main/idol_gallery_links_03.txt";
+const media3LocalLinks  = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_gallery_links_03.txt";
+const media3SaveName    = "idol_gallery_links_03.txt";
 
 const videoRemoteLinks = "https://raw.githubusercontent.com/beltedblinds/idols-video-01/main/idol_video_links.txt";
 const videoLocalLinks  = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_video_links.txt";
@@ -83,7 +89,7 @@ const videoSaveName    = "idol_video_links.txt";
 
 const catsFile = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/categories.txt";
 
-let mode = "media";
+let mode = "media"; // "media", "media2", "media3", "video"
 let allLines = [];
 let categories = [];
 let uncategorizedOnly = false;
@@ -128,7 +134,6 @@ async function init() {
     if (localMap.has(key)) {
       let localLine = localMap.get(key);
       let [ln, lu, lthumb, lcat] = localLine.split(",").map(x => x.trim());
-
       const remoteThumb = thumb || "";
       if (lthumb !== remoteThumb) {
         lthumb = remoteThumb;
@@ -168,6 +173,13 @@ function filteredLines() {
   return cachedUncatList;
 }
 
+function getMediaType(url) {
+  const ext = url.split(".").pop().toLowerCase();
+  if (["mp4", "webm", "ogg"].includes(ext)) return "video";
+  if (["gif", "jpg", "jpeg", "png", "webp"].includes(ext)) return "image";
+  return "unknown";
+}
+
 function showImage() {
   const list = filteredLines();
   if (currentIndex < 0) currentIndex = 0;
@@ -181,12 +193,17 @@ function showImage() {
   const [name, url, thumb, cat] = allLines[idx].split(",").map(x => x.trim());
   const container = document.getElementById("imageContainer");
 
-  if (mode === "video") {
+  let type = mode === "media3" ? getMediaType(url) : mode;
+
+  if (type === "video") {
     container.innerHTML = `<h3>${name}</h3><video src="${url}" autoplay loop muted playsinline onerror="this.style.display='none'"></video><p>Category: ${cat || "(none)"}</p>`;
-  } else {
+  } else if (type === "image") {
     container.innerHTML = `<h3>${name}</h3><img src="${url}" alt="${name}" onerror="this.style.display='none'"><p>Category: ${cat || "(none)"}</p>`;
+  } else {
+    container.innerHTML = `<h3>${name}</h3><p>Unsupported media: ${url}</p>`;
   }
-  document.getElementById("progress").textContent = `Image ${currentIndex + 1} of ${list.length}`;
+
+  document.getElementById("progress").textContent = `Item ${currentIndex + 1} of ${list.length}`;
 }
 
 function setCategory(cat) {
@@ -222,7 +239,7 @@ document.getElementById("save").onclick = () => {
   URL.revokeObjectURL(a.href);
 };
 
-// 🆕 Switch sources
+// Switch sources
 function switchToMedia() {
   remoteLinks = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt";
   localLinks  = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_gallery_links.txt";
@@ -233,12 +250,22 @@ function switchToMedia() {
   init();
 }
 
-function switchToMedia2() { // 🆕
+function switchToMedia2() {
   remoteLinks = media2RemoteLinks;
   localLinks  = media2LocalLinks;
   saveName    = media2SaveName;
   setActiveButton("btnMedia2");
-  mode = "media";
+  mode = "media2";
+  currentIndex = 0;
+  init();
+}
+
+function switchToMedia3() {
+  remoteLinks = media3RemoteLinks;
+  localLinks  = media3LocalLinks;
+  saveName    = media3SaveName;
+  setActiveButton("btnMedia3");
+  mode = "media3";
   currentIndex = 0;
   init();
 }
@@ -253,14 +280,15 @@ function switchToVideo() {
   init();
 }
 
-function setActiveButton(id) { // 🆕 helper
-  ["btnMedia", "btnMedia2", "btnVideo"].forEach(btnId =>
+function setActiveButton(id) {
+  ["btnMedia", "btnMedia2", "btnMedia3", "btnVideo"].forEach(btnId =>
     document.getElementById(btnId).classList.toggle("active", btnId === id)
   );
 }
 
 document.getElementById("btnMedia").onclick = switchToMedia;
-document.getElementById("btnMedia2").onclick = switchToMedia2; // 🆕
+document.getElementById("btnMedia2").onclick = switchToMedia2;
+document.getElementById("btnMedia3").onclick = switchToMedia3;
 document.getElementById("btnVideo").onclick = switchToVideo;
 
 init();
