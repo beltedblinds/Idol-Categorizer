@@ -16,14 +16,13 @@
     padding: 1rem;
   }
   h1 { margin: 0.5rem 0 1rem; }
-  img, video {
+  img {
     max-width: 80vw;
     max-height: 60vh;
     border-radius: 1rem;
     box-shadow: 0 0 20px #0008;
     margin: 1rem 0;
   }
-  video { background: #000; }
   .controls {
     display: flex;
     flex-wrap: wrap;
@@ -54,8 +53,6 @@
   <div class="controls" id="sourceButtons" style="margin-bottom:0.5rem;">
     <button id="btnMedia" class="active">🖼️ idols-media-01</button>
     <button id="btnMedia2">🖼️ idols-media-02</button>
-    <button id="btnMedia3">🖼️🎥 idols-media-03</button>
-    <button id="btnVideo">🎥 idols-video-01</button>
   </div>
 
   <div id="imageContainer"><p>Loading items...</p></div>
@@ -79,17 +76,9 @@ const media2RemoteLinks = "https://raw.githubusercontent.com/beltedblinds/idols-
 const media2LocalLinks  = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_gallery_links_02.txt";
 const media2SaveName    = "idol_gallery_links_02.txt";
 
-const media3RemoteLinks = "https://raw.githubusercontent.com/beltedblinds/idols-media-03/main/idol_gallery_links_03.txt";
-const media3LocalLinks  = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_gallery_links_03.txt";
-const media3SaveName    = "idol_gallery_links_03.txt";
-
-const videoRemoteLinks = "https://raw.githubusercontent.com/beltedblinds/idols-video-01/main/idol_video_links.txt";
-const videoLocalLinks  = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_video_links.txt";
-const videoSaveName    = "idol_video_links.txt";
-
 const catsFile = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/categories.txt";
 
-let mode = "media"; // "media", "media2", "media3", "video"
+let mode = "media"; // "media" or "media2"
 let allLines = [];
 let categories = [];
 let uncategorizedOnly = false;
@@ -173,13 +162,6 @@ function filteredLines() {
   return cachedUncatList;
 }
 
-function getMediaType(url) {
-  const ext = url.split(".").pop().toLowerCase();
-  if (["mp4", "webm", "ogg"].includes(ext)) return "video";
-  if (["gif", "jpg", "jpeg", "png", "webp"].includes(ext)) return "image";
-  return "unknown";
-}
-
 function showImage() {
   const list = filteredLines();
   if (currentIndex < 0) currentIndex = 0;
@@ -192,17 +174,7 @@ function showImage() {
   const { idx } = list[currentIndex];
   const [name, url, thumb, cat] = allLines[idx].split(",").map(x => x.trim());
   const container = document.getElementById("imageContainer");
-
-  // 🆕 Detect type for all media, including media1/2/3
-  let type = (mode === "video") ? "video" : getMediaType(url);
-
-  if (type === "video") {
-    container.innerHTML = `<h3>${name}</h3><video src="${url}" autoplay loop muted playsinline onerror="this.style.display='none'"></video><p>Category: ${cat || "(none)"}</p>`;
-  } else if (type === "image") {
-    container.innerHTML = `<h3>${name}</h3><img src="${url}" alt="${name}" onerror="this.style.display='none'"><p>Category: ${cat || "(none)"}</p>`;
-  } else {
-    container.innerHTML = `<h3>${name}</h3><p>Unsupported media: ${url}</p>`;
-  }
+  container.innerHTML = `<h3>${name}</h3><img src="${url}" alt="${name}" onerror="this.style.display='none'"><p>Category: ${cat || "(none)"}</p>`;
 
   document.getElementById("progress").textContent = `Item ${currentIndex + 1} of ${list.length}`;
 }
@@ -261,36 +233,14 @@ function switchToMedia2() {
   init();
 }
 
-function switchToMedia3() {
-  remoteLinks = media3RemoteLinks;
-  localLinks  = media3LocalLinks;
-  saveName    = media3SaveName;
-  setActiveButton("btnMedia3");
-  mode = "media3";
-  currentIndex = 0;
-  init();
-}
-
-function switchToVideo() {
-  remoteLinks = videoRemoteLinks;
-  localLinks  = videoLocalLinks;
-  saveName    = videoSaveName;
-  setActiveButton("btnVideo");
-  mode = "video";
-  currentIndex = 0;
-  init();
-}
-
 function setActiveButton(id) {
-  ["btnMedia", "btnMedia2", "btnMedia3", "btnVideo"].forEach(btnId =>
+  ["btnMedia", "btnMedia2"].forEach(btnId =>
     document.getElementById(btnId).classList.toggle("active", btnId === id)
   );
 }
 
 document.getElementById("btnMedia").onclick = switchToMedia;
 document.getElementById("btnMedia2").onclick = switchToMedia2;
-document.getElementById("btnMedia3").onclick = switchToMedia3;
-document.getElementById("btnVideo").onclick = switchToVideo;
 
 init();
 </script>
