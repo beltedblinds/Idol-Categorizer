@@ -64,6 +64,7 @@
     <button id="skip">⏭️ Skip</button>
     <button id="toggleSound">🔇 Sound Off</button>
     <button id="uncatOnly">Show Only Uncategorized</button>
+    <button id="checkSound">🔊 Check Video Sound</button>
     <button id="save">💾 Save Categorized File</button>
   </div>
 
@@ -273,6 +274,61 @@ document.getElementById("toggleSound").onclick = () => {
   const vid = document.querySelector("video");
   if (vid) vid.muted = !soundEnabled;
 };
+
+// --- Sound detection for videos ---
+async function detectVideoSound(url) {
+  return new Promise(resolve => {
+    const vid = document.createElement("video");
+    vid.src = url;
+    vid.preload = "metadata";
+    vid.muted = true;
+    vid.playsInline = true;
+
+    const timeout = setTimeout(() => resolve(false), 5000); // in case it hangs
+
+    vid.onloadedmetadata = () => {
+      clearTimeout(timeout);
+      const hasAudio = (vid.audioTracks && vid.audioTracks.length > 0) ||
+                       (typeof vid.mozHasAudio !== "undefined" && vid.mozHasAudio) ||
+                       (typeof vid.webkitAudioDecodedByteCount !== "undefined" && vid.webkitAudioDecodedByteCount > 0);
+      resolve(hasAudio);
+    };
+
+    vid.onerror = () => {
+      clearTimeout(timeout);
+      resolve(false);
+    };
+  });
+}
+
+async function checkAllVideosForSound() {
+  const total = allLines.length;
+  let updatedCount = 0;
+
+  for (let i = 0; i < allLines.length; i++) {
+    const parts = allLines[i].split(",").map(x => x.trim());
+    const url = parts[1];
+    const type = getMediaType(url);
+
+    if (type === "video") {
+      const hasSound = await detectVideoSound(url);
+      if (hasSound && !parts.includes("Sound")) {
+        parts.push("Sound"); // add "Sound" as extra field
+        allLines[i] = parts.join(", ");
+        updatedCount++;
+      }
+    }
+
+    document.getElementById("progress").textContent = `Checking video ${i + 1} of ${total}...`;
+  }
+
+  alert(`✅ Sound check complete! ${updatedCount} videos updated with "Sound".`);
+  showMedia(); // refresh display
+}
+
+// Connect button
+document.getElementById("checkSound").onclick = checkAllVideosForSound;
+
 
 
 init();
