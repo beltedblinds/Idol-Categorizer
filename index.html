@@ -277,29 +277,51 @@ document.getElementById("toggleSound").onclick = () => {
 
 // --- Sound detection for videos ---
 async function detectVideoSound(url) {
-  return new Promise(resolve => {
-    const vid = document.createElement("video");
-    vid.src = url;
-    vid.preload = "metadata";
-    vid.muted = true;
-    vid.playsInline = true;
+  return new Promise(async resolve => {
+    try {
+      const vid = document.createElement("video");
+      vid.src = url;
+      vid.crossOrigin = "anonymous";
+      vid.preload = "auto";
+      vid.muted = false;
+      vid.playsInline = true;
 
-    const timeout = setTimeout(() => resolve(false), 5000); // in case it hangs
+      await vid.play().catch(() => {}); // start loading the video
 
-    vid.onloadedmetadata = () => {
-      clearTimeout(timeout);
-      const hasAudio = (vid.audioTracks && vid.audioTracks.length > 0) ||
-                       (typeof vid.mozHasAudio !== "undefined" && vid.mozHasAudio) ||
-                       (typeof vid.webkitAudioDecodedByteCount !== "undefined" && vid.webkitAudioDecodedByteCount > 0);
-      resolve(hasAudio);
-    };
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioCtx.createMediaElementSource(vid);
+      const analyser = audioCtx.createAnalyser();
+      source.connect(analyser);
+      analyser.connect(audioCtx.destination);
 
-    vid.onerror = () => {
-      clearTimeout(timeout);
+      const data = new Uint8Array(analyser.fftSize);
+      let checked = false;
+
+      function checkVolume() {
+        analyser.getByteTimeDomainData(data);
+        const sum = data.reduce((acc, val) => acc + Math.abs(val - 128), 0);
+        if (sum > 1000) { // threshold for "sound"
+          checked = true;
+          audioCtx.close();
+          resolve(true);
+        } else if (!checked && vid.currentTime >= Math.min(vid.duration, 2)) {
+          checked = true;
+          audioCtx.close();
+          resolve(false);
+        } else {
+          requestAnimationFrame(checkVolume);
+        }
+      }
+
+      vid.oncanplay = () => requestAnimationFrame(checkVolume);
+      vid.onerror = () => resolve(false);
+
+    } catch (e) {
       resolve(false);
-    };
+    }
   });
 }
+
 
 async function checkAllVideosForSound() {
   const total = allLines.length;
