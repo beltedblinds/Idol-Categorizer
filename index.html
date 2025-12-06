@@ -231,6 +231,16 @@ document.getElementById("uncatOnly").onclick = e => {
   showMedia();
 };
 
+// --- Keyboard navigation: Left/Right arrows ---
+document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowRight") {
+    document.getElementById("skip").click();
+  } else if (e.key === "ArrowLeft") {
+    document.getElementById("prev").click();
+  }
+});
+
+
 document.getElementById("save").onclick = () => {
   const blob = new Blob([allLines.join("\n")], { type: "text/plain" });
   const a = document.createElement("a");
