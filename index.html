@@ -62,6 +62,7 @@
   <div class="controls">
     <button id="prev">⬅️ Previous</button>
     <button id="skip">⏭️ Skip</button>
+    <button id="toggleSound">🔇 Sound Off</button>
     <button id="uncatOnly">Show Only Uncategorized</button>
     <button id="save">💾 Save Categorized File</button>
   </div>
@@ -85,6 +86,7 @@ let categories = [];
 let uncategorizedOnly = false;
 let cachedUncatList = null;
 let currentIndex = 0;
+let soundEnabled = false; // START MUTED
 
 async function loadText(url) {
   try {
@@ -186,7 +188,7 @@ function showMedia() {
 
   if (type === "video") {
     container.innerHTML = `<h3>${name}</h3>
-      <video src="${url}" autoplay loop muted playsinline controls onerror="this.style.display='none'"></video>
+      <video src="${url}" autoplay loop ${soundEnabled ? "" : "muted"} playsinline controls onerror="this.style.display='none'"></video>
       <p>Category: ${cat || "(none)"}</p>`;
   } else if (type === "image") {
     container.innerHTML = `<h3>${name}</h3>
@@ -261,6 +263,17 @@ function setActiveButton(id) {
 
 document.getElementById("btnMedia").onclick = switchToMedia;
 document.getElementById("btnMedia2").onclick = switchToMedia2;
+
+document.getElementById("toggleSound").onclick = () => {
+  soundEnabled = !soundEnabled;
+
+  const btn = document.getElementById("toggleSound");
+  btn.textContent = soundEnabled ? "🔊 Sound On" : "🔇 Sound Off";
+
+  const vid = document.querySelector("video");
+  if (vid) vid.muted = !soundEnabled;
+};
+
 
 init();
 </script>
