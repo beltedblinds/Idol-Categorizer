@@ -63,6 +63,7 @@
     <button id="prev">⬅️ Previous</button>
     <button id="skip">⏭️ Skip</button>
     <button id="toggleSound">🔇 Sound Off</button>
+    <button id="soundToggle">🔊 Sound</button>
     <button id="uncatOnly">Show Only Uncategorized</button>
     <button id="save">💾 Save Categorized File</button>
   </div>
@@ -182,24 +183,29 @@ function showMedia() {
   }
 
   const { idx } = list[currentIndex];
-  const [name, url, thumb, cat] = allLines[idx].split(",").map(x => x.trim());
+  const parts = allLines[idx].split(",").map(x => x.trim());
+  const [name, url, thumb, cat] = parts;
   const container = document.getElementById("imageContainer");
   const type = getMediaType(url);
+
+  // Show sound: yes if "Sound" exists
+  const soundText = parts.includes("Sound") ? ", sound: yes" : "";
 
   if (type === "video") {
     container.innerHTML = `<h3>${name}</h3>
       <video src="${url}" autoplay loop ${soundEnabled ? "" : "muted"} playsinline controls onerror="this.style.display='none'"></video>
-      <p>Category: ${cat || "(none)"}</p>`;
+      <p>Category: ${cat || "(none)"}${soundText}</p>`;
   } else if (type === "image") {
     container.innerHTML = `<h3>${name}</h3>
       <img src="${url}" alt="${name}" onerror="this.style.display='none'">
-      <p>Category: ${cat || "(none)"}</p>`;
+      <p>Category: ${cat || "(none)"}${soundText}</p>`;
   } else {
     container.innerHTML = `<h3>${name}</h3><p>Unsupported media: ${url}</p>`;
   }
 
   document.getElementById("progress").textContent = `Item ${currentIndex + 1} of ${list.length}`;
 }
+
 
 function setCategory(cat) {
   const list = filteredLines();
@@ -272,6 +278,28 @@ document.getElementById("toggleSound").onclick = () => {
 
   const vid = document.querySelector("video");
   if (vid) vid.muted = !soundEnabled;
+};
+
+document.getElementById("soundToggle").onclick = () => {
+  const list = filteredLines();
+  if (!list.length) return;
+
+  const { idx } = list[currentIndex];
+  let parts = allLines[idx].split(",").map(x => x.trim());
+
+  // Toggle "Sound"
+  const soundIndex = parts.indexOf("Sound");
+  if (soundIndex >= 0) {
+    parts.splice(soundIndex, 1); // remove "Sound"
+  } else {
+    parts.push("Sound"); // add "Sound"
+  }
+
+  // Update allLines
+  allLines[idx] = parts.join(", ");
+
+  // Refresh display
+  showMedia();
 };
 
 
