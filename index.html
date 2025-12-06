@@ -64,7 +64,6 @@
     <button id="skip">⏭️ Skip</button>
     <button id="toggleSound">🔇 Sound Off</button>
     <button id="uncatOnly">Show Only Uncategorized</button>
-    <button id="checkSound">🔊 Check Video Sound</button>
     <button id="save">💾 Save Categorized File</button>
   </div>
 
@@ -274,83 +273,6 @@ document.getElementById("toggleSound").onclick = () => {
   const vid = document.querySelector("video");
   if (vid) vid.muted = !soundEnabled;
 };
-
-// --- Sound detection for videos ---
-async function detectVideoSound(url) {
-  return new Promise(async resolve => {
-    try {
-      const vid = document.createElement("video");
-      vid.src = url;
-      vid.crossOrigin = "anonymous";
-      vid.preload = "auto";
-      vid.muted = false;
-      vid.playsInline = true;
-
-      await vid.play().catch(() => {}); // start loading the video
-
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const source = audioCtx.createMediaElementSource(vid);
-      const analyser = audioCtx.createAnalyser();
-      source.connect(analyser);
-      analyser.connect(audioCtx.destination);
-
-      const data = new Uint8Array(analyser.fftSize);
-      let checked = false;
-
-      function checkVolume() {
-        analyser.getByteTimeDomainData(data);
-        const sum = data.reduce((acc, val) => acc + Math.abs(val - 128), 0);
-        if (sum > 1000) { // threshold for "sound"
-          checked = true;
-          audioCtx.close();
-          resolve(true);
-        } else if (!checked && vid.currentTime >= Math.min(vid.duration, 2)) {
-          checked = true;
-          audioCtx.close();
-          resolve(false);
-        } else {
-          requestAnimationFrame(checkVolume);
-        }
-      }
-
-      vid.oncanplay = () => requestAnimationFrame(checkVolume);
-      vid.onerror = () => resolve(false);
-
-    } catch (e) {
-      resolve(false);
-    }
-  });
-}
-
-
-async function checkAllVideosForSound() {
-  const total = allLines.length;
-  let updatedCount = 0;
-
-  for (let i = 0; i < allLines.length; i++) {
-    const parts = allLines[i].split(",").map(x => x.trim());
-    const url = parts[1];
-    const type = getMediaType(url);
-
-    if (type === "video") {
-      const hasSound = await detectVideoSound(url);
-      if (hasSound && !parts.includes("Sound")) {
-        parts.push("Sound"); // add "Sound" as extra field
-        allLines[i] = parts.join(", ");
-        updatedCount++;
-      }
-    }
-
-    document.getElementById("progress").textContent = `Checking video ${i + 1} of ${total}...`;
-  }
-
-  alert(`✅ Sound check complete! ${updatedCount} videos updated with "Sound".`);
-  showMedia(); // refresh display
-}
-
-// Connect button
-document.getElementById("checkSound").onclick = checkAllVideosForSound;
-
 
 
 init();
