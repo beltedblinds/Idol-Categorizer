@@ -182,40 +182,41 @@ function showMedia() {
   }
 
   const { idx } = list[currentIndex];
-  const parts = allLines[idx].split(",").map(x => x.trim());
-  const [name, url, thumb, cat] = parts;
+  let parts = allLines[idx].split(","); 
+  // Ensure there are 4 fields
+  while (parts.length < 4) parts.push("");
+  const name = parts[0].trim();
+  const url  = parts[1].trim();
+  const thumb = parts[2].trim();
+  const cat = parts[3].trim();
+
   const container = document.getElementById("imageContainer");
 
-  // Highlight selected categories (multi-category support)
+  // Highlight selected categories
   document.querySelectorAll("#categoryButtons button").forEach(btn => {
-    btn.classList.toggle(
-      "active",
-      cat && cat.split(",").map(c => c.trim()).includes(btn.textContent)
-    );
+    const catList = cat ? cat.split(",").map(c => c.trim()) : [];
+    btn.classList.toggle("active", catList.includes(btn.textContent));
   });
 
   const type = getMediaType(url);
 
-  // Prepare category and sound display
-  const categoriesText = cat || "(none)";
-  const soundText = soundEnabled ? "On" : "Off";
-
   if (type === "video") {
     container.innerHTML = `<h3>${name}</h3>
       <video src="${url}" autoplay loop ${soundEnabled ? "" : "muted"} playsinline controls onerror="this.style.display='none'"></video>
-      <p>Categories: ${categoriesText}</p>
-      <p>Sound: ${soundText}</p>`;
+      <p>Categories: ${cat || "(none)"}</p>
+      <p>Sound: ${soundEnabled ? "On" : "Off"}</p>`;
   } else if (type === "image") {
     container.innerHTML = `<h3>${name}</h3>
       <img src="${url}" alt="${name}" onerror="this.style.display='none'">
-      <p>Categories: ${categoriesText}</p>
-      <p>Sound: ${soundText}</p>`;
+      <p>Categories: ${cat || "(none)"}</p>
+      <p>Sound: ${soundEnabled ? "On" : "Off"}</p>`;
   } else {
     container.innerHTML = `<h3>${name}</h3><p>Unsupported media: ${url}</p>`;
   }
 
   document.getElementById("progress").textContent = `Item ${currentIndex + 1} of ${list.length}`;
 }
+
 
 
 
