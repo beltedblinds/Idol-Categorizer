@@ -190,7 +190,7 @@ function showMedia() {
   document.querySelectorAll("#categoryButtons button").forEach(btn => {
     btn.classList.toggle(
       "active",
-      cat && cat.split("|").map(c => c.trim()).includes(btn.textContent)
+      cat && cat.split(",").map(c => c.trim()).includes(btn.textContent)
     );
   });
 
@@ -225,8 +225,9 @@ function setCategory(cat) {
   if (!parts[3]) parts[3] = "";
 
   let currentCats = parts[3]
-    ? parts[3].split("|").map(c => c.trim())
+    ? parts[3].split(",").map(c => c.trim())
     : [];
+
 
   // Toggle category on/off
   if (currentCats.includes(cat)) {
@@ -235,7 +236,7 @@ function setCategory(cat) {
     currentCats.push(cat);
   }
 
-  parts[3] = currentCats.join(" | ");
+  parts[3] = currentCats.join(", ");
   allLines[idx] = parts.join(", ");
 
   showMedia(); // ✅ NO AUTO-SKIP
