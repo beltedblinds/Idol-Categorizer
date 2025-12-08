@@ -202,12 +202,12 @@ function showMedia() {
   if (type === "video") {
     container.innerHTML = `<h3>${name}</h3>
       <video src="${url}" autoplay loop ${soundEnabled ? "" : "muted"} playsinline controls onerror="this.style.display='none'"></video>
-      <p>Categories: ${cat ? cat : "(none)"}${soundText}</p>
+      <p>Categories: ${cat ? cat : "(none)"}${soundText}</p>`;
   } else if (type === "image") {
     container.innerHTML = `<h3>${name}</h3>
       <img src="${url}" alt="${name}" onerror="this.style.display='none'">
-      <p>Categories: ${cat ? cat : "(none)"}${soundText}</p>
-  } else {
+      <p>Categories: ${cat ? cat : "(none)"}${soundText}</p>`;
+    } else {
     container.innerHTML = `<h3>${name}</h3><p>Unsupported media: ${url}</p>`;
   }
 
