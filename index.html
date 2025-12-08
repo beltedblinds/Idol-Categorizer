@@ -207,6 +207,7 @@ function showMedia() {
   }
 
   document.getElementById("progress").textContent = `Item ${currentIndex + 1} of ${list.length}`;
+  renderCategoryButtons();
 }
 
 function setCategory(cat) {
@@ -215,8 +216,8 @@ function setCategory(cat) {
   const parts = allLines[idx].split(",").map(x => x.trim());
   const [n, u, t] = parts;
 
-  // Get existing categories as array
-  let existingCats = parts[3] ? parts[3].split(",").map(x => x.trim()) : [];
+  // Get existing categories as array, split by comma, trim spaces
+  let existingCats = parts[3] ? parts[3].split(",").map(x => x.trim()).filter(Boolean) : [];
 
   // Toggle the selected category
   if (existingCats.includes(cat)) {
@@ -225,8 +226,9 @@ function setCategory(cat) {
     existingCats.push(cat); // add if not present
   }
 
-  allLines[idx] = `${n}, ${u}, ${t}, ${existingCats.join(",")}`;
-  showMedia();
+  // Save back as comma + space separated list
+  allLines[idx] = `${n}, ${u}, ${t}, ${existingCats.join(", ")}`;
+  showMedia(); // re-render the media and category buttons
 }
 
 
