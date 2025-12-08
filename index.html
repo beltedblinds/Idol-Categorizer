@@ -217,7 +217,6 @@ function setCategory(cat) {
   const { idx } = list[currentIndex];
   const [n, u, t, catsField = ""] = allLines[idx].match(/^([^,]+),\s*([^,]+),\s*([^,]+),?\s*(.*)$/).slice(1);
 
-
   // Get existing categories as array, split by comma, trim spaces
   let existingCats = catsField ? catsField.split(",").map(x => x.trim()).filter(Boolean) : [];
 
@@ -228,10 +227,19 @@ function setCategory(cat) {
     existingCats.push(cat); // add if not present
   }
 
+  // Reorder existingCats to match the order in categories.txt
+  existingCats.sort((a, b) => {
+    const indexA = categories.indexOf(a);
+    const indexB = categories.indexOf(b);
+    // categories not found in categories.txt stay at the end
+    return (indexA === -1 ? Infinity : indexA) - (indexB === -1 ? Infinity : indexB);
+  });
+
   // Save back as comma + space separated list
   allLines[idx] = `${n}, ${u}, ${t}, ${existingCats.join(", ")}`;
   showMedia(); // re-render the media and category buttons
 }
+
 
 
 document.getElementById("skip").onclick = () => { currentIndex++; showMedia(); };
