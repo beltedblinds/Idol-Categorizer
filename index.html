@@ -183,39 +183,71 @@ function showMedia() {
 
   const { idx } = list[currentIndex];
   let parts = allLines[idx].split(","); 
-  // Ensure there are 4 fields
   while (parts.length < 4) parts.push("");
   const name = parts[0].trim();
   const url  = parts[1].trim();
-  const thumb = parts[2].trim();
-  const cat = parts[3].trim();
+  const catList = parts[3].trim() ? parts[3].trim().split(",").map(c => c.trim()) : [];
 
   const container = document.getElementById("imageContainer");
 
-  // Ensure there are 4 fields
-  while (parts.length < 4) parts.push("");
-  const catList = parts[3].trim() ? parts[3].trim().split(",").map(c => c.trim()) : [];
-  
-  // Highlight selected categories
+  // Highlight selected category buttons
   document.querySelectorAll("#categoryButtons button").forEach(btn => {
     btn.classList.toggle("active", catList.includes(btn.textContent));
   });
 
-  const type = getMediaType(url);
-
-  if (type === "video") {
-    container.innerHTML = `<h3>${name}</h3>
-      <video src="${url}" autoplay loop ${soundEnabled ? "" : "muted"} playsinline controls onerror="this.style.display='none'"></video>
-      <p>Categories: ${catList.length ? catList.join(", ") : "(none)"}</p>
-      <p>Sound: ${soundEnabled ? "On" : "Off"}</p>`;
-  } else if (type === "image") {
-    container.innerHTML = `<h3>${name}</h3>
-      <img src="${url}" alt="${name}" onerror="this.style.display='none'">
-      <p>Categories: ${catList.length ? catList.join(", ") : "(none)"}</p>
-      <p>Sound: ${soundEnabled ? "On" : "Off"}</p>`;
-  } else {
-    container.innerHTML = `<h3>${name}</h3><p>Unsupported media: ${url}</p>`;
+  // Create or reuse elements
+  let title = container.querySelector("h3");
+  if (!title) {
+    title = document.createElement("h3");
+    container.appendChild(title);
   }
+  title.textContent = name;
+
+  let media = container.querySelector("video, img");
+  const type = getMediaType(url);
+  if (type === "video") {
+    if (!media || media.tagName.toLowerCase() !== "video") {
+      if (media) media.remove();
+      media = document.createElement("video");
+      media.autoplay = true;
+      media.loop = true;
+      media.playsInline = true;
+      media.controls = true;
+      container.appendChild(media);
+    }
+    media.src = url;
+    media.muted = !soundEnabled;
+  } else if (type === "image") {
+    if (!media || media.tagName.toLowerCase() !== "img") {
+      if (media) media.remove();
+      media = document.createElement("img");
+      container.appendChild(media);
+    }
+    media.src = url;
+    media.alt = name;
+  } else {
+    if (media) media.remove();
+    media = document.createElement("p");
+    media.textContent = `Unsupported media: ${url}`;
+    container.appendChild(media);
+  }
+
+  // Update category and sound text
+  let catText = container.querySelector(".catText");
+  if (!catText) {
+    catText = document.createElement("p");
+    catText.className = "catText";
+    container.appendChild(catText);
+  }
+  catText.textContent = `Categories: ${catList.length ? catList.join(", ") : "(none)"}`;
+
+  let soundText = container.querySelector(".soundText");
+  if (!soundText) {
+    soundText = document.createElement("p");
+    soundText.className = "soundText";
+    container.appendChild(soundText);
+  }
+  soundText.textContent = `Sound: ${soundEnabled ? "On" : "Off"}`;
 
   document.getElementById("progress").textContent = `Item ${currentIndex + 1} of ${list.length}`;
 }
