@@ -392,8 +392,11 @@ function renderCatalog(filter = "") {
   });
 }
 
+// Filter catalog as you type
+catalogSearch.addEventListener("input", (e) => {
+  renderCatalog(e.target.value);
+});
 
-// --- End of catalog JS ---
 
 init();
 </script>
