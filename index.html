@@ -49,25 +49,31 @@
 </style>
 </head>
 <body>
-  <h1>🎶 Idol Categorizer</h1>
+<h1>🎶 Idol Categorizer</h1>
 
-  <div class="controls" id="sourceButtons" style="margin-bottom:0.5rem;">
-    <button id="btnMedia" class="active">🖼️ idols-media-01</button>
-    <button id="btnMedia2">🖼️ idols-media-02</button>
-  </div>
+<div class="controls" id="sourceButtons" style="margin-bottom:0.5rem;">
+  <button id="btnMedia" class="active">🖼️ idols-media-01</button>
+  <button id="btnMedia2">🖼️ idols-media-02</button>
+</div>
 
-  <div id="imageContainer"><p>Loading items...</p></div>
-  <div class="controls" id="categoryButtons"></div>
+<div id="imageContainer">
+  <h3 id="mediaTitle">Loading...</h3>
+  <div id="mediaWrapper"></div>
+  <p id="catText">Categories: (none)</p>
+  <p id="soundText">Sound: Off</p>
+</div>
 
-  <div class="controls">
-    <button id="prev">⬅️ Previous</button>
-    <button id="skip">⏭️ Skip</button>
-    <button id="toggleSound">🔇 Sound Off</button>
-    <button id="uncatOnly">Show Only Uncategorized</button>
-    <button id="save">💾 Save Categorized File</button>
-  </div>
+<div class="controls" id="categoryButtons"></div>
 
-  <div id="progress"></div>
+<div class="controls">
+  <button id="prev">⬅️ Previous</button>
+  <button id="skip">⏭️ Skip</button>
+  <button id="toggleSound">🔇 Sound Off</button>
+  <button id="uncatOnly">Show Only Uncategorized</button>
+  <button id="save">💾 Save Categorized File</button>
+</div>
+
+<div id="progress"></div>
 
 <script>
 let remoteLinks = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt";
@@ -80,13 +86,13 @@ const media2SaveName    = "idol_gallery_links_02.txt";
 
 const catsFile = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/categories.txt";
 
-let mode = "media"; // "media" or "media2"
+let mode = "media"; 
 let allLines = [];
 let categories = [];
 let uncategorizedOnly = false;
 let cachedUncatList = null;
 let currentIndex = 0;
-let soundEnabled = false; // START MUTED
+let soundEnabled = false;
 
 async function loadText(url) {
   try {
@@ -110,12 +116,10 @@ async function init() {
   const local  = localText.split(/\r?\n/).filter(Boolean);
   const normalize = str => str.replace(/\s+/g, "").replace("github.com", "raw.githubusercontent.com");
 
-  const localMap = new Map(
-    local.map(line => {
-      const parts = line.split(",").map(x => x.trim());
-      return [normalize(parts[1] || ""), line];
-    })
-  );
+  const localMap = new Map(local.map(line => {
+    const parts = line.split(",").map(x => x.trim());
+    return [normalize(parts[1] || ""), line];
+  }));
 
   const merged = [];
   for (const line of remote) {
@@ -176,52 +180,54 @@ function showMedia() {
   const list = filteredLines();
   if (currentIndex < 0) currentIndex = 0;
   if (currentIndex >= list.length) {
-    document.getElementById("imageContainer").innerHTML = "<p>✅ Categorization complete!</p>";
+    document.getElementById("mediaTitle").textContent = "✅ Categorization complete!";
+    document.getElementById("mediaWrapper").innerHTML = "";
+    document.getElementById("catText").textContent = "";
+    document.getElementById("soundText").textContent = "";
     document.getElementById("progress").textContent = "";
     return;
   }
 
   const { idx } = list[currentIndex];
   let parts = allLines[idx].split(","); 
-  // Ensure there are 4 fields
   while (parts.length < 4) parts.push("");
   const name = parts[0].trim();
-  const url  = parts[1].trim();
-  const thumb = parts[2].trim();
-  const cat = parts[3].trim();
-
-  const container = document.getElementById("imageContainer");
-
-  // Ensure there are 4 fields
-  while (parts.length < 4) parts.push("");
+  const url = parts[1].trim();
   const catList = parts[3].trim() ? parts[3].trim().split(",").map(c => c.trim()) : [];
-  
-  // Highlight selected categories
+
+  document.getElementById("mediaTitle").textContent = name;
+
+  const wrapper = document.getElementById("mediaWrapper");
+  wrapper.innerHTML = "";
+  const type = getMediaType(url);
+
+  if (type === "video") {
+    const vid = document.createElement("video");
+    vid.src = url;
+    vid.autoplay = true;
+    vid.loop = true;
+    vid.playsInline = true;
+    vid.controls = true;
+    vid.muted = !soundEnabled;
+    wrapper.appendChild(vid);
+  } else if (type === "image") {
+    const img = document.createElement("img");
+    img.src = url;
+    img.alt = name;
+    wrapper.appendChild(img);
+  } else {
+    wrapper.textContent = `Unsupported media: ${url}`;
+  }
+
+  document.getElementById("catText").textContent = `Categories: ${catList.length ? catList.join(", ") : "(none)"}`;
+  document.getElementById("soundText").textContent = `Sound: ${soundEnabled ? "On" : "Off"}`;
+
   document.querySelectorAll("#categoryButtons button").forEach(btn => {
     btn.classList.toggle("active", catList.includes(btn.textContent));
   });
 
-  const type = getMediaType(url);
-
-  if (type === "video") {
-    container.innerHTML = `<h3>${name}</h3>
-      <video src="${url}" autoplay loop ${soundEnabled ? "" : "muted"} playsinline controls onerror="this.style.display='none'"></video>
-      <p>Categories: ${catList.length ? catList.join(", ") : "(none)"}</p>
-      <p>Sound: ${soundEnabled ? "On" : "Off"}</p>`;
-  } else if (type === "image") {
-    container.innerHTML = `<h3>${name}</h3>
-      <img src="${url}" alt="${name}" onerror="this.style.display='none'">
-      <p>Categories: ${catList.length ? catList.join(", ") : "(none)"}</p>
-      <p>Sound: ${soundEnabled ? "On" : "Off"}</p>`;
-  } else {
-    container.innerHTML = `<h3>${name}</h3><p>Unsupported media: ${url}</p>`;
-  }
-
   document.getElementById("progress").textContent = `Item ${currentIndex + 1} of ${list.length}`;
 }
-
-
-
 
 function setCategory(cat) {
   const list = filteredLines();
@@ -234,20 +240,17 @@ function setCategory(cat) {
     ? parts[3].split(",").map(c => c.trim()).filter(Boolean)
     : [];
 
-  // Toggle category on/off
   if (currentCats.includes(cat)) {
     currentCats = currentCats.filter(c => c !== cat);
   } else {
     currentCats.push(cat);
   }
 
-  // Deduplicate and join cleanly
   parts[3] = Array.from(new Set(currentCats)).join(", ");
-  allLines[idx] = parts.join(", ");
+  allLines[idx] = parts.join(",");
 
-  showMedia(); // ✅ refresh highlighting and text
+  showMedia();
 }
-
 
 document.getElementById("skip").onclick = () => { currentIndex++; showMedia(); };
 document.getElementById("prev").onclick = () => { currentIndex--; showMedia(); };
@@ -264,15 +267,10 @@ document.getElementById("uncatOnly").onclick = e => {
   showMedia();
 };
 
-// --- Keyboard navigation: Left/Right arrows ---
 document.addEventListener("keydown", (e) => {
-  if (e.key === "ArrowRight") {
-    document.getElementById("skip").click();
-  } else if (e.key === "ArrowLeft") {
-    document.getElementById("prev").click();
-  }
+  if (e.key === "ArrowRight") document.getElementById("skip").click();
+  if (e.key === "ArrowLeft") document.getElementById("prev").click();
 });
-
 
 document.getElementById("save").onclick = () => {
   const blob = new Blob([allLines.join("\n")], { type: "text/plain" });
@@ -283,7 +281,6 @@ document.getElementById("save").onclick = () => {
   URL.revokeObjectURL(a.href);
 };
 
-// Switch sources
 function switchToMedia() {
   remoteLinks = "https://raw.githubusercontent.com/beltedblinds/idols-media-01/main/idol_gallery_links.txt";
   localLinks  = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_gallery_links.txt";
@@ -305,8 +302,8 @@ function switchToMedia2() {
 }
 
 function setActiveButton(id) {
-  ["btnMedia", "btnMedia2"].forEach(btnId =>
-    document.getElementById(btnId).classList.toggle("active", btnId === id)
+  ["btnMedia","btnMedia2"].forEach(btnId =>
+    document.getElementById(btnId).classList.toggle("active", btnId===id)
   );
 }
 
@@ -315,14 +312,11 @@ document.getElementById("btnMedia2").onclick = switchToMedia2;
 
 document.getElementById("toggleSound").onclick = () => {
   soundEnabled = !soundEnabled;
-
-  const btn = document.getElementById("toggleSound");
-  btn.textContent = soundEnabled ? "🔊 Sound On" : "🔇 Sound Off";
-
+  document.getElementById("toggleSound").textContent = soundEnabled ? "🔊 Sound On" : "🔇 Sound Off";
   const vid = document.querySelector("video");
   if (vid) vid.muted = !soundEnabled;
+  document.getElementById("soundText").textContent = `Sound: ${soundEnabled ? "On" : "Off"}`;
 };
-
 
 init();
 </script>
