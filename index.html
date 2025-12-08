@@ -306,6 +306,20 @@ document.getElementById("toggleSound").onclick = () => {
   if (vid) vid.muted = !soundEnabled;
 };
 
+// Keyboard navigation
+document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowRight") {
+    // Right arrow → Skip
+    currentIndex++;
+    showMedia();
+  } else if (e.key === "ArrowLeft") {
+    // Left arrow → Previous
+    currentIndex--;
+    showMedia();
+  }
+});
+
+
 
 init();
 </script>
