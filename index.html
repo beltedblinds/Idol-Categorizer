@@ -154,7 +154,7 @@ function renderCategoryButtons() {
   div.innerHTML = "";
   const list = filteredLines();
   const { idx } = list[currentIndex];
-  const [, , , catsField = ""] = allLines[idx].split(/,(.+)/, 4).map(x => x.trim());
+  const [, , , catsField = ""] = allLines[idx].match(/^([^,]+),\s*([^,]+),\s*([^,]+),?\s*(.*)$/).slice(1);
   const currentCats = catsField ? catsField.split(",").map(x => x.trim()).filter(Boolean) : [];
 
 
@@ -192,7 +192,7 @@ function showMedia() {
   }
 
   const { idx } = list[currentIndex];
-  const [name, url, thumb, cat] = allLines[idx].split(/,(.+)/).map(x => x.trim());
+  const [name, url, thumb, cat = ""] = allLines[idx].match(/^([^,]+),\s*([^,]+),\s*([^,]+),?\s*(.*)$/).slice(1);
   const container = document.getElementById("imageContainer");
   const type = getMediaType(url);
 
@@ -215,7 +215,7 @@ function showMedia() {
 function setCategory(cat) {
   const list = filteredLines();
   const { idx } = list[currentIndex];
-  const [n, u, t, catsField = ""] = allLines[idx].split(/,(.+)/, 4).map(x => x.trim());
+  const [n, u, t, catsField = ""] = allLines[idx].match(/^([^,]+),\s*([^,]+),\s*([^,]+),?\s*(.*)$/).slice(1);
 
 
   // Get existing categories as array, split by comma, trim spaces
