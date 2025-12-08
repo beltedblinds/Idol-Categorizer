@@ -192,9 +192,12 @@ function showMedia() {
 
   const container = document.getElementById("imageContainer");
 
+  // Ensure there are 4 fields
+  while (parts.length < 4) parts.push("");
+  const catList = parts[3].trim() ? parts[3].trim().split(",").map(c => c.trim()) : [];
+  
   // Highlight selected categories
   document.querySelectorAll("#categoryButtons button").forEach(btn => {
-    const catList = cat ? cat.split(",").map(c => c.trim()) : [];
     btn.classList.toggle("active", catList.includes(btn.textContent));
   });
 
@@ -203,12 +206,12 @@ function showMedia() {
   if (type === "video") {
     container.innerHTML = `<h3>${name}</h3>
       <video src="${url}" autoplay loop ${soundEnabled ? "" : "muted"} playsinline controls onerror="this.style.display='none'"></video>
-      <p>Categories: ${cat || "(none)"}</p>
+      <p>Categories: ${catList.length ? catList.join(", ") : "(none)"}</p>
       <p>Sound: ${soundEnabled ? "On" : "Off"}</p>`;
   } else if (type === "image") {
     container.innerHTML = `<h3>${name}</h3>
       <img src="${url}" alt="${name}" onerror="this.style.display='none'">
-      <p>Categories: ${cat || "(none)"}</p>
+      <p>Categories: ${catList.length ? catList.join(", ") : "(none)"}</p>
       <p>Sound: ${soundEnabled ? "On" : "Off"}</p>`;
   } else {
     container.innerHTML = `<h3>${name}</h3><p>Unsupported media: ${url}</p>`;
@@ -225,14 +228,11 @@ function setCategory(cat) {
   const { idx } = list[currentIndex];
 
   let parts = allLines[idx].split(",").map(x => x.trim());
-
-  // Ensure category field exists
-  if (!parts[3]) parts[3] = "";
+  while (parts.length < 4) parts.push("");
 
   let currentCats = parts[3]
-    ? parts[3].split(",").map(c => c.trim())
+    ? parts[3].split(",").map(c => c.trim()).filter(Boolean)
     : [];
-
 
   // Toggle category on/off
   if (currentCats.includes(cat)) {
@@ -241,10 +241,11 @@ function setCategory(cat) {
     currentCats.push(cat);
   }
 
-  parts[3] = currentCats.join(", ");
+  // Deduplicate and join cleanly
+  parts[3] = Array.from(new Set(currentCats)).join(", ");
   allLines[idx] = parts.join(", ");
 
-  showMedia(); // ✅ NO AUTO-SKIP
+  showMedia(); // ✅ refresh highlighting and text
 }
 
 
