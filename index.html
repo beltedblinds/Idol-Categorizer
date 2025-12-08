@@ -186,6 +186,14 @@ function showMedia() {
   const parts = allLines[idx].split(",").map(x => x.trim());
   const [name, url, thumb, cat] = parts;
   const container = document.getElementById("imageContainer");
+  // ✅ Highlight selected categories (multi-category support)
+  document.querySelectorAll("#categoryButtons button").forEach(btn => {
+    btn.classList.toggle(
+      "active",
+      cat && cat.split("|").map(c => c.trim()).includes(btn.textContent)
+    );
+  });
+
   const type = getMediaType(url);
 
   // Show sound: yes if "Sound" exists
@@ -194,11 +202,11 @@ function showMedia() {
   if (type === "video") {
     container.innerHTML = `<h3>${name}</h3>
       <video src="${url}" autoplay loop ${soundEnabled ? "" : "muted"} playsinline controls onerror="this.style.display='none'"></video>
-      <p>Category: ${cat || "(none)"}${soundText}</p>`;
+      <p>Categories: ${cat ? cat : "(none)"}${soundText}</p>
   } else if (type === "image") {
     container.innerHTML = `<h3>${name}</h3>
       <img src="${url}" alt="${name}" onerror="this.style.display='none'">
-      <p>Category: ${cat || "(none)"}${soundText}</p>`;
+      <p>Categories: ${cat ? cat : "(none)"}${soundText}</p>
   } else {
     container.innerHTML = `<h3>${name}</h3><p>Unsupported media: ${url}</p>`;
   }
@@ -210,11 +218,29 @@ function showMedia() {
 function setCategory(cat) {
   const list = filteredLines();
   const { idx } = list[currentIndex];
-  const [n, u, t] = allLines[idx].split(",").map(x => x.trim());
-  allLines[idx] = `${n}, ${u}, ${t}, ${cat}`;
-  if (currentIndex < list.length - 1) currentIndex++;
-  showMedia();
+
+  let parts = allLines[idx].split(",").map(x => x.trim());
+
+  // Ensure category field exists
+  if (!parts[3]) parts[3] = "";
+
+  let currentCats = parts[3]
+    ? parts[3].split("|").map(c => c.trim())
+    : [];
+
+  // Toggle category on/off
+  if (currentCats.includes(cat)) {
+    currentCats = currentCats.filter(c => c !== cat);
+  } else {
+    currentCats.push(cat);
+  }
+
+  parts[3] = currentCats.join(" | ");
+  allLines[idx] = parts.join(", ");
+
+  showMedia(); // ✅ NO AUTO-SKIP
 }
+
 
 document.getElementById("skip").onclick = () => { currentIndex++; showMedia(); };
 document.getElementById("prev").onclick = () => { currentIndex--; showMedia(); };
@@ -224,7 +250,7 @@ document.getElementById("uncatOnly").onclick = e => {
   cachedUncatList = uncategorizedOnly
     ? allLines.map((line, idx) => ({ line, idx })).filter(obj => {
         const parts = obj.line.split(",").map(x => x.trim());
-        return parts.length < 4 || !parts[3];
+        return !parts[3] || parts[3].trim() === "";
       })
     : null;
   currentIndex = 0;
