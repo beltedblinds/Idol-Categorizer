@@ -152,10 +152,18 @@ async function init() {
 function renderCategoryButtons() {
   const div = document.getElementById("categoryButtons");
   div.innerHTML = "";
+  const list = filteredLines();
+  const { idx } = list[currentIndex];
+  const currentCats = allLines[idx].split(",")[3]?.split(",").map(x => x.trim()) || [];
+
   categories.forEach(cat => {
     const btn = document.createElement("button");
     btn.textContent = cat;
-    btn.onclick = () => setCategory(cat);
+    btn.classList.toggle("active", currentCats.includes(cat));
+    btn.onclick = () => {
+      setCategory(cat);
+      renderCategoryButtons(); // update button highlights after toggle
+    };
     div.appendChild(btn);
   });
 }
@@ -204,11 +212,23 @@ function showMedia() {
 function setCategory(cat) {
   const list = filteredLines();
   const { idx } = list[currentIndex];
-  const [n, u, t] = allLines[idx].split(",").map(x => x.trim());
-  allLines[idx] = `${n}, ${u}, ${t}, ${cat}`;
-  if (currentIndex < list.length - 1) currentIndex++;
+  const parts = allLines[idx].split(",").map(x => x.trim());
+  const [n, u, t] = parts;
+
+  // Get existing categories as array
+  let existingCats = parts[3] ? parts[3].split(",").map(x => x.trim()) : [];
+
+  // Toggle the selected category
+  if (existingCats.includes(cat)) {
+    existingCats = existingCats.filter(c => c !== cat); // remove if already selected
+  } else {
+    existingCats.push(cat); // add if not present
+  }
+
+  allLines[idx] = `${n}, ${u}, ${t}, ${existingCats.join(",")}`;
   showMedia();
 }
+
 
 document.getElementById("skip").onclick = () => { currentIndex++; showMedia(); };
 document.getElementById("prev").onclick = () => { currentIndex--; showMedia(); };
