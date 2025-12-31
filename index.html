@@ -54,6 +54,7 @@
   <div class="controls" id="sourceButtons" style="margin-bottom:0.5rem;">
     <button id="btnMedia" class="active">🖼️ idols-media-01</button>
     <button id="btnMedia2">🖼️ idols-media-02</button>
+    <button id="btnMedia3">🖼️ idols-media-03</button>
   </div>
 
   <div id="imageContainer"><p>Loading items...</p></div>
@@ -92,6 +93,11 @@ let saveName = "idol_gallery_links.txt";
 const media2RemoteLinks = "https://raw.githubusercontent.com/beltedblinds/idols-media-02/main/idol_gallery_links_02.txt";
 const media2LocalLinks  = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_gallery_links_02.txt";
 const media2SaveName    = "idol_gallery_links_02.txt";
+
+const media3RemoteLinks = "https://raw.githubusercontent.com/beltedblinds/idols-media-03/main/idol_gallery_links_03.txt";
+const media3LocalLinks  = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/idol_gallery_links_03.txt";
+const media3SaveName    = "idol_gallery_links_03.txt";
+
 
 const catsFile = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/categories.txt";
 
@@ -302,14 +308,26 @@ function switchToMedia2() {
   init();
 }
 
+function switchToMedia3() {
+  remoteLinks = media3RemoteLinks;
+  localLinks  = media3LocalLinks;
+  saveName    = media3SaveName;
+  setActiveButton("btnMedia3");
+  mode = "media3";
+  currentIndex = 0;
+  init();
+}
+
+
 function setActiveButton(id) {
-  ["btnMedia", "btnMedia2"].forEach(btnId =>
+  ["btnMedia", "btnMedia2", "btnMedia3"].forEach(btnId =>
     document.getElementById(btnId).classList.toggle("active", btnId === id)
   );
 }
 
 document.getElementById("btnMedia").onclick = switchToMedia;
 document.getElementById("btnMedia2").onclick = switchToMedia2;
+document.getElementById("btnMedia3").onclick = switchToMedia3;
 
 document.getElementById("toggleSound").onclick = () => {
   soundEnabled = !soundEnabled;
