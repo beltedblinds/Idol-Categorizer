@@ -118,6 +118,19 @@ let totalDuration = 0;    // sum of part durations
 let videoElement = null;  // current video element reference
 let urls = [];            // array of video URLs for multipart videos
 
+async function preloadVideoDurations(urls) {
+  const durations = [];
+  for (const u of urls) {
+    durations.push(await new Promise(resolve => {
+      const vid = document.createElement("video");
+      vid.src = u;
+      vid.onloadedmetadata = () => resolve(vid.duration || 0);
+      vid.onerror = () => resolve(0);
+    }));
+  }
+  return durations;
+}
+
 
 async function loadText(url) {
   try {
@@ -213,7 +226,7 @@ function getMediaType(url) {
   return "unknown";
 }
 
-function showMedia() {
+async function showMedia() {
   const list = filteredLines();
   if (currentIndex < 0) currentIndex = 0;
   if (currentIndex >= list.length) {
@@ -231,8 +244,9 @@ function showMedia() {
   if (type === "video") {
     urls = url.split(";").map(x => x.trim());  // support multipart videos
     currentPartIndex = 0;
-    partDurations = new Array(urls.length).fill(0);
-    totalDuration = 0;
+    partDurations = await preloadVideoDurations(urls);
+    totalDuration = partDurations.reduce((a,b)=>a+b,0);
+
 
     container.innerHTML = `<h3>${name}</h3>
       <video id="mediaVideo" autoplay ${soundEnabled ? "" : "muted"} playsinline controls></video>
@@ -246,14 +260,6 @@ function showMedia() {
     timeline.style.display = "block";  // always show for videos
     timelineProgress.style.width = "0%";
 
-    function updateTotalDuration(idx) {
-      videoElement.onloadedmetadata = () => {
-        partDurations[idx] = videoElement.duration || 0;
-        totalDuration = partDurations.reduce((a, b) => a + b, 0);
-      };
-    }
-
-    updateTotalDuration(0);
 
     // Update progress bar
     videoElement.ontimeupdate = () => {
