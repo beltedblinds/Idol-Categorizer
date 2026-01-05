@@ -58,6 +58,10 @@
   </div>
 
   <div id="imageContainer"><p>Loading items...</p></div>
+  <div id="timelineContainer" style="width: 80vw; height: 12px; background: #333; border-radius: 6px; margin: 0.5rem 0; cursor: pointer; display: none;">
+    <div id="timelineProgress" style="width:0%; height:100%; background:#28a745; border-radius:6px;"></div>
+  </div>
+
   <div class="controls" id="categoryButtons"></div>
 
   <div class="controls">
@@ -108,6 +112,12 @@ let uncategorizedOnly = false;
 let cachedUncatList = null;
 let currentIndex = 0;
 let soundEnabled = false; // START MUTED
+let currentPartIndex = 0;
+let partDurations = [];   // durations of each part in seconds
+let totalDuration = 0;    // sum of part durations
+let videoElement = null;  // current video element reference
+let urls = [];            // array of video URLs for multipart videos
+
 
 async function loadText(url) {
   try {
@@ -209,6 +219,7 @@ function showMedia() {
   if (currentIndex >= list.length) {
     document.getElementById("imageContainer").innerHTML = "<p>✅ Categorization complete!</p>";
     document.getElementById("progress").textContent = "";
+    document.getElementById("timelineContainer").style.display = "none";
     return;
   }
 
@@ -218,20 +229,98 @@ function showMedia() {
   const type = getMediaType(url);
 
   if (type === "video") {
+    urls = url.split(";").map(x => x.trim());  // support multipart videos
+    currentPartIndex = 0;
+    partDurations = new Array(urls.length).fill(0);
+    totalDuration = 0;
+
     container.innerHTML = `<h3>${name}</h3>
-      <video src="${url}" autoplay loop ${soundEnabled ? "" : "muted"} playsinline controls onerror="this.style.display='none'"></video>
+      <video id="mediaVideo" autoplay ${soundEnabled ? "" : "muted"} playsinline controls></video>
       <p>Category: ${cat || "(none)"}</p>`;
-  } else if (type === "image") {
+
+    videoElement = document.getElementById("mediaVideo");
+    videoElement.src = urls[0];
+
+    const timeline = document.getElementById("timelineContainer");
+    const timelineProgress = document.getElementById("timelineProgress");
+    timeline.style.display = "block";  // always show for videos
+    timelineProgress.style.width = "0%";
+
+    function updateTotalDuration(idx) {
+      videoElement.onloadedmetadata = () => {
+        partDurations[idx] = videoElement.duration || 0;
+        totalDuration = partDurations.reduce((a, b) => a + b, 0);
+      };
+    }
+
+    updateTotalDuration(0);
+
+    // Update progress bar
+    videoElement.ontimeupdate = () => {
+      const elapsed = partDurations.slice(0, currentPartIndex).reduce((a, b) => a + b, 0) + videoElement.currentTime;
+      if (totalDuration > 0) timelineProgress.style.width = (elapsed / totalDuration * 100) + "%";
+    };
+
+    // Click on timeline
+    timeline.onclick = (e) => {
+      const rect = timeline.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickRatio = clickX / rect.width;
+      const targetTime = clickRatio * totalDuration;
+
+      // Determine which part
+      let accumulated = 0;
+      let partIndex = 0;
+      for (let i = 0; i < partDurations.length; i++) {
+        if (targetTime < accumulated + partDurations[i]) {
+          partIndex = i;
+          break;
+        }
+        accumulated += partDurations[i];
+      }
+      const timeInPart = targetTime - accumulated;
+
+      // Switch video if needed
+      if (partIndex !== currentPartIndex) {
+        currentPartIndex = partIndex;
+        videoElement.src = urls[currentPartIndex];
+        videoElement.currentTime = timeInPart;
+        videoElement.play();
+        updateTotalDuration(currentPartIndex);
+      } else {
+        videoElement.currentTime = timeInPart;
+      }
+    };
+
+    // --- NEW: Auto-play full sequence ---
+    videoElement.onended = () => {
+      if (currentPartIndex < urls.length - 1) {
+        currentPartIndex++;
+        videoElement.src = urls[currentPartIndex];
+        videoElement.play();
+        updateTotalDuration(currentPartIndex);
+      } else {
+        currentPartIndex = 0;
+        videoElement.src = urls[0];
+        videoElement.play();
+        updateTotalDuration(0);
+      }
+    };
+  }
+  else if (type === "image") {
+    document.getElementById("timelineContainer").style.display = "none";
     container.innerHTML = `<h3>${name}</h3>
       <img src="${url}" alt="${name}" onerror="this.style.display='none'">
       <p>Category: ${cat || "(none)"}</p>`;
   } else {
+    document.getElementById("timelineContainer").style.display = "none";
     container.innerHTML = `<h3>${name}</h3><p>Unsupported media: ${url}</p>`;
   }
 
   document.getElementById("progress").textContent = `Item ${currentIndex + 1} of ${list.length}`;
   renderCategoryButtons();
 }
+
 
 function setCategory(cat) {
   const list = filteredLines();
