@@ -273,11 +273,11 @@ async function showMedia() {
       const clickX = e.clientX - rect.left;
       const clickRatio = clickX / rect.width;
       const targetTime = clickRatio * totalDuration;
-
+    
       // Determine which part
       let accumulated = 0;
       let partIndex = 0;
-      for (let i = 0; i < partDurations.length; i++) {
+      for (let i=0; i<partDurations.length; i++) {
         if (targetTime < accumulated + partDurations[i]) {
           partIndex = i;
           break;
@@ -285,18 +285,26 @@ async function showMedia() {
         accumulated += partDurations[i];
       }
       const timeInPart = targetTime - accumulated;
-
-      // Switch video if needed
+    
       if (partIndex !== currentPartIndex) {
-        currentPartIndex = partIndex;
-        videoElement.src = urls[currentPartIndex];
-        videoElement.currentTime = timeInPart;
-        videoElement.play();
-        updateTotalDuration(currentPartIndex);
+        // Pause current video to prevent flicker
+        videoElement.pause();
+    
+        // Create temp video to preload
+        const tempVid = document.createElement("video");
+        tempVid.src = urls[partIndex];
+        tempVid.preload = "auto";
+        tempVid.onloadedmetadata = () => {
+          currentPartIndex = partIndex;
+          videoElement.src = urls[currentPartIndex];
+          videoElement.currentTime = timeInPart;
+          videoElement.play();
+        };
       } else {
         videoElement.currentTime = timeInPart;
       }
     };
+
 
     // --- NEW: Auto-play full sequence ---
     videoElement.onended = () => {
