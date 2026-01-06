@@ -367,7 +367,16 @@ function setCategory(cat) {
 
   // Save back as comma + space separated list
   allLines[idx] = `${n}, ${u}, ${t}, ${existingCats.join(", ")}`;
-  showMedia(); // re-render the media and category buttons
+
+  // Update category text without restarting media
+  const catText = document.querySelector("#imageContainer p");
+  if (catText) {
+    catText.textContent = `Category: ${existingCats.join(", ") || "(none)"}`;
+  }
+  
+  // Update button highlights only
+  renderCategoryButtons();
+
 }
 
 
