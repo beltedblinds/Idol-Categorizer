@@ -459,11 +459,11 @@ document.getElementById("toggleSound").onclick = () => {
 
 // Keyboard navigation
 document.addEventListener("keydown", (e) => {
-  if (e.key === "ArrowRight") {
+  if (e.key === "ArrowRight" || e.key === "D") {
     // Right arrow → Skip
     currentIndex++;
     showMedia();
-  } else if (e.key === "ArrowLeft") {
+  } else if (e.key === "ArrowLeft" || e.key === "A") {
     // Left arrow → Previous
     currentIndex--;
     showMedia();
