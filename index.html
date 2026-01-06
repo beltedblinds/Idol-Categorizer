@@ -68,6 +68,11 @@
     <button id="prev">⬅️ Previous</button>
     <button id="skip">⏭️ Skip</button>
     <button id="toggleSound">🔇 Sound Off</button>
+  
+    <!-- GLOBAL VOLUME SLIDER -->
+    <input id="volumeSlider" type="range" min="0" max="1" step="0.01" value="0.5"
+           style="width:120px; accent-color:#28a745;">
+  
     <button id="uncatOnly">Show Only Uncategorized</button>
     <button id="save">💾 Save Categorized File</button>
   </div>
@@ -112,6 +117,7 @@ let uncategorizedOnly = false;
 let cachedUncatList = null;
 let currentIndex = 0;
 let soundEnabled = false; // START MUTED
+let globalVolume = 0.5; // default volume
 let currentPartIndex = 0;
 let partDurations = [];   // durations of each part in seconds
 let totalDuration = 0;    // sum of part durations
@@ -254,6 +260,9 @@ async function showMedia() {
 
     videoElement = document.getElementById("mediaVideo");
     videoElement.src = urls[0];
+    videoElement.volume = globalVolume;
+    videoElement.muted = !soundEnabled;
+
 
     const timeline = document.getElementById("timelineContainer");
     const timelineProgress = document.getElementById("timelineProgress");
@@ -303,9 +312,12 @@ async function showMedia() {
         tempVid.onloadedmetadata = () => {
           currentPartIndex = partIndex;
           videoElement.src = urls[currentPartIndex];
+          videoElement.volume = globalVolume;
+          videoElement.muted = !soundEnabled;
           videoElement.currentTime = timeInPart;
           videoElement.play();
         };
+
       } else {
         videoElement.currentTime = timeInPart;
       }
@@ -317,15 +329,20 @@ async function showMedia() {
       if (currentPartIndex < urls.length - 1) {
         currentPartIndex++;
         videoElement.src = urls[currentPartIndex];
+        videoElement.volume = globalVolume;
+        videoElement.muted = !soundEnabled;
         videoElement.play();
         updateTotalDuration(currentPartIndex);
       } else {
         currentPartIndex = 0;
         videoElement.src = urls[0];
+        videoElement.volume = globalVolume;
+        videoElement.muted = !soundEnabled;
         videoElement.play();
         updateTotalDuration(0);
       }
     };
+
   }
   else if (type === "image") {
     document.getElementById("timelineContainer").style.display = "none";
@@ -456,6 +473,24 @@ document.getElementById("toggleSound").onclick = () => {
   const vid = document.querySelector("video");
   if (vid) vid.muted = !soundEnabled;
 };
+
+// Global volume slider
+const volumeSlider = document.getElementById("volumeSlider");
+
+volumeSlider.oninput = (e) => {
+  globalVolume = parseFloat(e.target.value);
+
+  const vid = document.querySelector("video");
+  if (vid) {
+    vid.volume = globalVolume;
+    if (globalVolume > 0 && !soundEnabled) {
+      soundEnabled = true;
+      document.getElementById("toggleSound").textContent = "🔊 Sound On";
+      vid.muted = false;
+    }
+  }
+};
+
 
 // Keyboard navigation
 document.addEventListener("keydown", (e) => {
