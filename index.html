@@ -407,12 +407,34 @@ function setCategory(cat) {
   });
 
   // Save back as comma + space separated list
-  allLines[idx] = `${n}, ${u}, ${t}, ${existingCats.join(", ")}`;
-
-  // Update category text without restarting media
+  // --- NEW: handle position separator ---
+  let normalCats = [];
+  let posCats = [];
+  
+  // Split existingCats into normal vs position categories
+  existingCats.forEach(c => {
+    if (positions.includes(c)) {
+      posCats.push(c);
+    } else {
+      normalCats.push(c);
+    }
+  });
+  
+  // Combine with 'position' separator if there are position categories
+  let combinedCats;
+  if (posCats.length > 0) {
+    combinedCats = normalCats.concat(["position"], posCats);
+  } else {
+    combinedCats = normalCats;
+  }
+  
+  // Save back to allLines
+  allLines[idx] = `${n}, ${u}, ${t}, ${combinedCats.join(", ")}`;
+  
+  // Update category text in UI
   const catText = document.querySelector("#imageContainer p");
   if (catText) {
-    catText.textContent = `Category: ${existingCats.join(", ") || "(none)"}`;
+    catText.textContent = `Category: ${combinedCats.join(", ") || "(none)"}`;
   }
   
   // Update button highlights only
