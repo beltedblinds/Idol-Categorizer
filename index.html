@@ -116,10 +116,6 @@ const media4SaveName    = "idol_gallery_links_04.txt";
 
 const catsFile = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/categories.txt";
 
-const positionsFile = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/positions.txt";
-let positions = [];  // to store positions once loaded
-
-
 let mode = "media"; // "media" or "media2"
 let allLines = [];
 let categories = [];
@@ -163,14 +159,11 @@ async function loadText(url) {
 }
 
 async function init() {
-  const [remoteText, localText, catsText, positionsText] = await Promise.all([
+  const [remoteText, localText, catsText] = await Promise.all([
     loadText(remoteLinks),
     loadText(localLinks),
-    loadText(catsFile),
-    loadText(positionsFile)
+    loadText(catsFile)
   ]);
-
-  positions = positionsText.split(/\r?\n/).filter(Boolean);
 
   const remote = remoteText.split(/\r?\n/).filter(Boolean);
   const local  = localText.split(/\r?\n/).filter(Boolean);
@@ -218,18 +211,13 @@ async function init() {
 function renderCategoryButtons() {
   const div = document.getElementById("categoryButtons");
   div.innerHTML = "";
-
   const list = filteredLines();
-  if (!list.length) return;
-
   const { idx } = list[currentIndex];
   const [, , , catsField = ""] = allLines[idx].match(/^([^,]+),\s*([^,]+),\s*([^,]+),?\s*(.*)$/).slice(1);
   const currentCats = catsField ? catsField.split(",").map(x => x.trim()).filter(Boolean) : [];
 
-  // Use positions instead of categories if Positions Mode is on
-  const buttonsToUse = cat10or11Only ? positions : categories;
 
-  buttonsToUse.forEach(cat => {
+  categories.forEach(cat => {
     const btn = document.createElement("button");
     btn.textContent = cat;
     btn.classList.toggle("active", currentCats.includes(cat));
@@ -240,7 +228,6 @@ function renderCategoryButtons() {
     div.appendChild(btn);
   });
 }
-
 
 function filteredLines() {
   if (uncategorizedOnly) return cachedUncatList;
@@ -407,41 +394,12 @@ function setCategory(cat) {
   });
 
   // Save back as comma + space separated list
-  // --- NEW: handle position separator properly with fixed order ---
-  let normalCats = [];
-  let posCats = [];
-  
-  // Split existingCats into normal vs position categories
-  existingCats.forEach(c => {
-    if (positions.includes(c)) {
-      posCats.push(c);
-    } else if (c !== "position") {   // ignore old 'position' markers
-      normalCats.push(c);
-    }
-  });
-  
-  // Sort posCats according to the order in positions.txt
-  posCats.sort((a, b) => {
-    const iA = positions.indexOf(a);
-    const iB = positions.indexOf(b);
-    return iA - iB;
-  });
-  
-  // Combine with 'position' separator if there are any positions selected
-  let combinedCats;
-  if (posCats.length > 0) {
-    combinedCats = normalCats.concat(["position"], posCats);
-  } else {
-    combinedCats = normalCats;  // no positions → remove 'position' marker if it existed
-  }
-  
-  // Save back to allLines
-  allLines[idx] = `${n}, ${u}, ${t}, ${combinedCats.join(", ")}`;
-  
-  // Update category text in UI
+  allLines[idx] = `${n}, ${u}, ${t}, ${existingCats.join(", ")}`;
+
+  // Update category text without restarting media
   const catText = document.querySelector("#imageContainer p");
   if (catText) {
-    catText.textContent = `Category: ${combinedCats.join(", ") || "(none)"}`;
+    catText.textContent = `Category: ${existingCats.join(", ") || "(none)"}`;
   }
   
   // Update button highlights only
@@ -499,7 +457,6 @@ document.getElementById("cat10or11").onclick = e => {
 
   currentIndex = 0;
   showMedia();
-  renderCategoryButtons();  // refresh buttons immediately
 };
 
 
