@@ -116,6 +116,10 @@ const media4SaveName    = "idol_gallery_links_04.txt";
 
 const catsFile = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/categories.txt";
 
+const positionsFile = "https://raw.githubusercontent.com/beltedblinds/Idol-Categorizer/main/positions.txt";
+let positions = [];  // to store positions once loaded
+
+
 let mode = "media"; // "media" or "media2"
 let allLines = [];
 let categories = [];
@@ -159,11 +163,14 @@ async function loadText(url) {
 }
 
 async function init() {
-  const [remoteText, localText, catsText] = await Promise.all([
+  const [remoteText, localText, catsText, positionsText] = await Promise.all([
     loadText(remoteLinks),
     loadText(localLinks),
-    loadText(catsFile)
+    loadText(catsFile),
+    loadText(positionsFile)
   ]);
+
+  positions = positionsText.split(/\r?\n/).filter(Boolean);
 
   const remote = remoteText.split(/\r?\n/).filter(Boolean);
   const local  = localText.split(/\r?\n/).filter(Boolean);
@@ -211,13 +218,18 @@ async function init() {
 function renderCategoryButtons() {
   const div = document.getElementById("categoryButtons");
   div.innerHTML = "";
+
   const list = filteredLines();
+  if (!list.length) return;
+
   const { idx } = list[currentIndex];
   const [, , , catsField = ""] = allLines[idx].match(/^([^,]+),\s*([^,]+),\s*([^,]+),?\s*(.*)$/).slice(1);
   const currentCats = catsField ? catsField.split(",").map(x => x.trim()).filter(Boolean) : [];
 
+  // Use positions instead of categories if Positions Mode is on
+  const buttonsToUse = cat10or11Only ? positions : categories;
 
-  categories.forEach(cat => {
+  buttonsToUse.forEach(cat => {
     const btn = document.createElement("button");
     btn.textContent = cat;
     btn.classList.toggle("active", currentCats.includes(cat));
@@ -228,6 +240,7 @@ function renderCategoryButtons() {
     div.appendChild(btn);
   });
 }
+
 
 function filteredLines() {
   if (uncategorizedOnly) return cachedUncatList;
@@ -457,6 +470,7 @@ document.getElementById("cat10or11").onclick = e => {
 
   currentIndex = 0;
   showMedia();
+  renderCategoryButtons();  // refresh buttons immediately
 };
 
 
