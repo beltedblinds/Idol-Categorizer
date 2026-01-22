@@ -73,7 +73,8 @@
     <!-- GLOBAL VOLUME SLIDER -->
     <input id="volumeSlider" type="range" min="0" max="1" step="0.01" value="0.5"
            style="width:120px; accent-color:#28a745;">
-  
+    
+    <button id="cat10or11">Show Only Positions</button>
     <button id="uncatOnly">Show Only Uncategorized</button>
     <button id="save">💾 Save Categorized File</button>
   </div>
@@ -128,6 +129,9 @@ let partDurations = [];   // durations of each part in seconds
 let totalDuration = 0;    // sum of part durations
 let videoElement = null;  // current video element reference
 let urls = [];            // array of video URLs for multipart videos
+
+let cat10or11Only = false;
+let cachedCat10or11List = null;
 
 async function preloadVideoDurations(urls) {
   const durations = [];
@@ -226,9 +230,11 @@ function renderCategoryButtons() {
 }
 
 function filteredLines() {
-  if (!uncategorizedOnly) return allLines.map((line, idx) => ({ line, idx }));
-  return cachedUncatList;
+  if (uncategorizedOnly) return cachedUncatList;
+  if (cat10or11Only) return cachedCat10or11List;
+  return allLines.map((line, idx) => ({ line, idx }));
 }
+
 
 function getMediaType(url) {
   const ext = url.split(".").pop().toLowerCase();
@@ -426,6 +432,33 @@ document.getElementById("save").onclick = () => {
   a.click();
   URL.revokeObjectURL(a.href);
 };
+
+document.getElementById("cat10or11").onclick = e => {
+  cat10or11Only = !cat10or11Only;
+  uncategorizedOnly = false; // disable other filter
+
+  // Button visuals
+  e.target.classList.toggle("active", cat10or11Only);
+  document.getElementById("uncatOnly").classList.remove("active");
+
+  // Get the 10th and 11th categories (index 9 and 10)
+  const cat10 = categories[9];
+  const cat11 = categories[10];
+
+  cachedCat10or11List = cat10or11Only
+    ? allLines.map((line, idx) => ({ line, idx })).filter(obj => {
+        const parts = obj.line.split(",").map(x => x.trim());
+        const cats = parts[3]
+          ? parts[3].split(",").map(c => c.trim())
+          : [];
+        return cats.includes(cat10) || cats.includes(cat11);
+      })
+    : null;
+
+  currentIndex = 0;
+  showMedia();
+};
+
 
 // Switch sources
 function switchToMedia() {
