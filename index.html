@@ -407,7 +407,7 @@ function setCategory(cat) {
   });
 
   // Save back as comma + space separated list
-  // --- NEW: handle position separator ---
+  // --- NEW: handle position separator properly ---
   let normalCats = [];
   let posCats = [];
   
@@ -415,17 +415,17 @@ function setCategory(cat) {
   existingCats.forEach(c => {
     if (positions.includes(c)) {
       posCats.push(c);
-    } else {
+    } else if (c !== "position") {   // ignore old 'position' markers
       normalCats.push(c);
     }
   });
   
-  // Combine with 'position' separator if there are position categories
+  // Combine with 'position' separator if there are any positions selected
   let combinedCats;
   if (posCats.length > 0) {
     combinedCats = normalCats.concat(["position"], posCats);
   } else {
-    combinedCats = normalCats;
+    combinedCats = normalCats;  // no positions → remove 'position' marker if it existed
   }
   
   // Save back to allLines
@@ -439,6 +439,7 @@ function setCategory(cat) {
   
   // Update button highlights only
   renderCategoryButtons();
+
 
 }
 
