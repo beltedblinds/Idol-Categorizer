@@ -31,6 +31,34 @@
     justify-content: center;
     margin-bottom: 1rem;
   }
+
+  .media-wrapper {
+    position: relative;
+    width: 80vw;          /* or whatever size you want */
+    max-width: 1000px;
+    height: 60vh;
+    max-height: 600px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    border-radius: 1rem;
+    background: #000;
+    box-shadow: 0 0 20px #0008;
+    margin: 1rem 0;
+  }
+  
+  .media-wrapper img,
+  .media-wrapper video {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain; /* fit inside wrapper without cropping */
+    display: block;
+  }
+
+  
   button {
     font-size: 1.2rem;
     padding: 0.7rem 1.5rem;
@@ -58,7 +86,12 @@
     <button id="btnMedia4">🖼️ idols-media-04</button>
   </div>
 
-  <div id="imageContainer"><p>Loading items...</p></div>
+  <div id="imageContainer">
+    <div class="media-wrapper">
+      <p>Loading items...</p>
+    </div>
+  </div>
+
   <div id="timelineContainer" style="width: 80vw; height: 12px; background: #333; border-radius: 6px; margin: 0.5rem 0; cursor: pointer; display: none;">
     <div id="timelineProgress" style="width:0%; height:100%; background:#28a745; border-radius:6px;"></div>
   </div>
@@ -274,9 +307,52 @@ async function showMedia() {
     totalDuration = partDurations.reduce((a,b)=>a+b,0);
 
 
-    container.innerHTML = `<h3>${name}</h3>
-      <video id="mediaVideo" autoplay ${soundEnabled ? "" : "muted"} playsinline controls></video>
-      <p>Category: ${cat || "(none)"}</p>`;
+    // Remove old title/category if they exist
+    container.querySelector("h3")?.remove();
+    container.querySelector("p")?.remove();
+    
+    // Create title
+    const title = document.createElement("h3");
+    title.textContent = name;
+    container.prepend(title);
+    
+    // Media wrapper
+    const wrapper = container.querySelector(".media-wrapper");
+    wrapper.innerHTML = "";
+    
+    if (type === "video") {
+      urls = url.split(";").map(x => x.trim());  // support multipart videos
+      currentPartIndex = 0;
+      preloadVideoDurations(urls).then(durations => {
+        partDurations = durations;
+        totalDuration = partDurations.reduce((a,b)=>a+b,0);
+    
+        const vid = document.createElement("video");
+        vid.id = "mediaVideo";
+        vid.autoplay = true;
+        vid.playsInline = true;
+        vid.controls = true;
+        vid.muted = !soundEnabled;
+        vid.src = urls[0];
+        vid.volume = globalVolume;
+        wrapper.appendChild(vid);
+        videoElement = vid;
+    
+        // Timeline & multipart logic can stay the same
+      });
+    
+    } else if (type === "image") {
+      const img = document.createElement("img");
+      img.src = url;
+      img.alt = name;
+      wrapper.appendChild(img);
+      videoElement = null;
+    }
+    
+    // Category text
+    const catText = document.createElement("p");
+    catText.textContent = `Category: ${cat || "(none)"}`;
+    container.appendChild(catText);
 
     videoElement = document.getElementById("mediaVideo");
     videoElement.src = urls[0];
@@ -366,9 +442,53 @@ async function showMedia() {
   }
   else if (type === "image") {
     document.getElementById("timelineContainer").style.display = "none";
-    container.innerHTML = `<h3>${name}</h3>
-      <img src="${url}" alt="${name}" onerror="this.style.display='none'">
-      <p>Category: ${cat || "(none)"}</p>`;
+    // Remove old title/category if they exist
+    container.querySelector("h3")?.remove();
+    container.querySelector("p")?.remove();
+    
+    // Create title
+    const title = document.createElement("h3");
+    title.textContent = name;
+    container.prepend(title);
+    
+    // Media wrapper
+    const wrapper = container.querySelector(".media-wrapper");
+    wrapper.innerHTML = "";
+    
+    if (type === "video") {
+      urls = url.split(";").map(x => x.trim());  // support multipart videos
+      currentPartIndex = 0;
+      preloadVideoDurations(urls).then(durations => {
+        partDurations = durations;
+        totalDuration = partDurations.reduce((a,b)=>a+b,0);
+    
+        const vid = document.createElement("video");
+        vid.id = "mediaVideo";
+        vid.autoplay = true;
+        vid.playsInline = true;
+        vid.controls = true;
+        vid.muted = !soundEnabled;
+        vid.src = urls[0];
+        vid.volume = globalVolume;
+        wrapper.appendChild(vid);
+        videoElement = vid;
+    
+        // Timeline & multipart logic can stay the same
+      });
+    
+    } else if (type === "image") {
+      const img = document.createElement("img");
+      img.src = url;
+      img.alt = name;
+      wrapper.appendChild(img);
+      videoElement = null;
+    }
+    
+    // Category text
+    const catText = document.createElement("p");
+    catText.textContent = `Category: ${cat || "(none)"}`;
+    container.appendChild(catText);
+
   } else {
     document.getElementById("timelineContainer").style.display = "none";
     container.innerHTML = `<h3>${name}</h3><p>Unsupported media: ${url}</p>`;
