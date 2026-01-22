@@ -238,10 +238,11 @@ function renderCategoryButtons() {
 }
 
 function filteredLines() {
-  if (uncategorizedOnly) return cachedUncatList;
-  if (cat10or11Only) return cachedCat10or11List;
+  if (uncategorizedOnly) return cachedUncatList || [];
+  if (cat10or11Only) return cachedCat10or11List || [];
   return allLines.map((line, idx) => ({ line, idx }));
 }
+
 
 
 function getMediaType(url) {
@@ -377,6 +378,13 @@ async function showMedia() {
   renderCategoryButtons();
 }
 
+function updateTotalDuration(partIndex) {
+  const timelineProgress = document.getElementById("timelineProgress");
+  const elapsed = partDurations.slice(0, partIndex).reduce((a,b)=>a+b,0);
+  if (totalDuration > 0) timelineProgress.style.width = (elapsed / totalDuration * 100) + "%";
+}
+
+
 
 function setCategory(cat) {
   const list = filteredLines();
@@ -498,6 +506,7 @@ function switchToMedia3() {
   currentIndex = 0;
   init();
 }
+  
 
 function switchToMedia4() {
   remoteLinks = media4RemoteLinks;
@@ -511,7 +520,7 @@ function switchToMedia4() {
 
 
 function setActiveButton(id) {
-  ["btnMedia", "btnMedia2", "btnMedia3"].forEach(btnId =>
+  ["btnMedia", "btnMedia2", "btnMedia3", "btnMedia4"].forEach(btnId =>
     document.getElementById(btnId).classList.toggle("active", btnId === id)
   );
 }
