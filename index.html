@@ -300,203 +300,58 @@ async function showMedia() {
   const container = document.getElementById("imageContainer");
   const type = getMediaType(url);
 
+  // Ensure title exists
+  container.querySelector("h3")?.remove();
+  const title = document.createElement("h3");
+  title.textContent = name;
+  container.prepend(title);
+
+  // Get wrapper
+  let wrapper = container.querySelector(".media-wrapper");
+  if (!wrapper) {
+    wrapper = document.createElement("div");
+    wrapper.className = "media-wrapper";
+    container.appendChild(wrapper);
+  }
+  wrapper.innerHTML = ""; // clear previous media
+
+  // Remove old category text
+  container.querySelector("p")?.remove();
+
   if (type === "video") {
-    urls = url.split(";").map(x => x.trim());  // support multipart videos
+    urls = url.split(";").map(x => x.trim());
     currentPartIndex = 0;
     partDurations = await preloadVideoDurations(urls);
     totalDuration = partDurations.reduce((a,b)=>a+b,0);
 
-
-    // Remove old title/category if they exist
-    container.querySelector("h3")?.remove();
-    container.querySelector("p")?.remove();
-    
-    // Create title
-    const title = document.createElement("h3");
-    title.textContent = name;
-    container.prepend(title);
-    
-    // Media wrapper
-    const wrapper = container.querySelector(".media-wrapper");
-    wrapper.innerHTML = "";
-    
-    if (type === "video") {
-      urls = url.split(";").map(x => x.trim());  // support multipart videos
-      currentPartIndex = 0;
-      preloadVideoDurations(urls).then(durations => {
-        partDurations = durations;
-        totalDuration = partDurations.reduce((a,b)=>a+b,0);
-    
-        const vid = document.createElement("video");
-        vid.id = "mediaVideo";
-        vid.autoplay = true;
-        vid.playsInline = true;
-        vid.controls = true;
-        vid.muted = !soundEnabled;
-        vid.src = urls[0];
-        vid.volume = globalVolume;
-        wrapper.appendChild(vid);
-        videoElement = vid;
-    
-        // Timeline & multipart logic can stay the same
-      });
-    
-    } else if (type === "image") {
-      const img = document.createElement("img");
-      img.src = url;
-      img.alt = name;
-      wrapper.appendChild(img);
-      videoElement = null;
-    }
-    
-    // Category text
-    const catText = document.createElement("p");
-    catText.textContent = `Category: ${cat || "(none)"}`;
-    container.appendChild(catText);
-
-    videoElement = document.getElementById("mediaVideo");
-    videoElement.src = urls[0];
-    videoElement.volume = globalVolume;
+    // Create video element
+    videoElement = document.createElement("video");
+    videoElement.id = "mediaVideo";
+    videoElement.autoplay = true;
+    videoElement.playsInline = true;
+    videoElement.controls = true;
     videoElement.muted = !soundEnabled;
+    videoElement.volume = globalVolume;
+    videoElement.src = urls[0];
 
+    wrapper.appendChild(videoElement);
 
+    // Timeline display
     const timeline = document.getElementById("timelineContainer");
     const timelineProgress = document.getElementById("timelineProgress");
-    
     if (urls.length > 1) {
-      timeline.style.display = "block";   // only show for multipart videos
+      timeline.style.display = "block";
       timelineProgress.style.width = "0%";
     } else {
-      timeline.style.display = "none";    // hide for single-part videos
+      timeline.style.display = "none";
     }
 
-
-
-    // Update progress bar
+    // Multipart progress update
     videoElement.ontimeupdate = () => {
-      const elapsed = partDurations.slice(0, currentPartIndex).reduce((a, b) => a + b, 0) + videoElement.currentTime;
+      const elapsed = partDurations.slice(0, currentPartIndex).reduce((a,b)=>a+b,0) + videoElement.currentTime;
       if (totalDuration > 0) timelineProgress.style.width = (elapsed / totalDuration * 100) + "%";
     };
 
-    // Click on timeline
-    timeline.onclick = (e) => {
-      const rect = timeline.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const clickRatio = clickX / rect.width;
-      const targetTime = clickRatio * totalDuration;
-    
-      // Determine which part
-      let accumulated = 0;
-      let partIndex = 0;
-      for (let i=0; i<partDurations.length; i++) {
-        if (targetTime < accumulated + partDurations[i]) {
-          partIndex = i;
-          break;
-        }
-        accumulated += partDurations[i];
-      }
-      const timeInPart = targetTime - accumulated;
-    
-      if (partIndex !== currentPartIndex) {
-        // Pause current video to prevent flicker
-        videoElement.pause();
-    
-        // Create temp video to preload
-        const tempVid = document.createElement("video");
-        tempVid.src = urls[partIndex];
-        tempVid.preload = "auto";
-        tempVid.onloadedmetadata = () => {
-          currentPartIndex = partIndex;
-          videoElement.src = urls[currentPartIndex];
-          videoElement.volume = globalVolume;
-          videoElement.muted = !soundEnabled;
-          videoElement.currentTime = timeInPart;
-          videoElement.play();
-        };
-
-      } else {
-        videoElement.currentTime = timeInPart;
-      }
-    };
-
-
-    // --- NEW: Auto-play full sequence ---
-    videoElement.onended = () => {
-      if (currentPartIndex < urls.length - 1) {
-        currentPartIndex++;
-        videoElement.src = urls[currentPartIndex];
-        videoElement.volume = globalVolume;
-        videoElement.muted = !soundEnabled;
-        videoElement.play();
-        updateTotalDuration(currentPartIndex);
-      } else {
-        currentPartIndex = 0;
-        videoElement.src = urls[0];
-        videoElement.volume = globalVolume;
-        videoElement.muted = !soundEnabled;
-        videoElement.play();
-        updateTotalDuration(0);
-      }
-    };
-
-  }
-  else if (type === "image") {
-    document.getElementById("timelineContainer").style.display = "none";
-    // Remove old title/category if they exist
-    container.querySelector("h3")?.remove();
-    container.querySelector("p")?.remove();
-    
-    // Create title
-    const title = document.createElement("h3");
-    title.textContent = name;
-    container.prepend(title);
-    
-    // Media wrapper
-    const wrapper = container.querySelector(".media-wrapper");
-    wrapper.innerHTML = "";
-    
-    if (type === "video") {
-      urls = url.split(";").map(x => x.trim());  // support multipart videos
-      currentPartIndex = 0;
-      preloadVideoDurations(urls).then(durations => {
-        partDurations = durations;
-        totalDuration = partDurations.reduce((a,b)=>a+b,0);
-    
-        const vid = document.createElement("video");
-        vid.id = "mediaVideo";
-        vid.autoplay = true;
-        vid.playsInline = true;
-        vid.controls = true;
-        vid.muted = !soundEnabled;
-        vid.src = urls[0];
-        vid.volume = globalVolume;
-        wrapper.appendChild(vid);
-        videoElement = vid;
-    
-        // Timeline & multipart logic can stay the same
-      });
-    
-    } else if (type === "image") {
-      const img = document.createElement("img");
-      img.src = url;
-      img.alt = name;
-      wrapper.appendChild(img);
-      videoElement = null;
-    }
-    
-    // Category text
-    const catText = document.createElement("p");
-    catText.textContent = `Category: ${cat || "(none)"}`;
-    container.appendChild(catText);
-
-  } else {
-    document.getElementById("timelineContainer").style.display = "none";
-    container.innerHTML = `<h3>${name}</h3><p>Unsupported media: ${url}</p>`;
-  }
-
-  document.getElementById("progress").textContent = `Item ${currentIndex + 1} of ${list.length}`;
-  renderCategoryButtons();
-}
 
 function updateTotalDuration(partIndex) {
   const timelineProgress = document.getElementById("timelineProgress");
