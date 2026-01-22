@@ -575,10 +575,24 @@ function renderCatalog(filter = "") {
   const list = allLines
     .map((line, idx) => {
       const parts = line.split(",").map(x => x.trim());
-      const [name, url, thumb] = parts;
-      return { name, url, thumb, idx };
+      const [name, url, thumb, catsField = ""] = parts;
+      const cats = catsField ? catsField.split(",").map(c => c.trim()) : [];
+      return { name, url, thumb, idx, cats };
     })
-    .filter(item => item.name.toLowerCase().includes(filter.toLowerCase()));
+    .filter(item => {
+      // Filter by search
+      const matchSearch = item.name.toLowerCase().includes(filter.toLowerCase());
+  
+      // Filter by Positions Mode if active
+      let matchPositions = true;
+      if (cat10or11Only) {
+        const cat10 = categories[9];
+        const cat11 = categories[10];
+        matchPositions = item.cats.includes(cat10) || item.cats.includes(cat11);
+      }
+  
+      return matchSearch && matchPositions;
+    });
 
   list.forEach(item => {
     const div = document.createElement("div");
