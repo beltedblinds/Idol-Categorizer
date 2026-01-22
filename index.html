@@ -407,7 +407,7 @@ function setCategory(cat) {
   });
 
   // Save back as comma + space separated list
-  // --- NEW: handle position separator properly ---
+  // --- NEW: handle position separator properly with fixed order ---
   let normalCats = [];
   let posCats = [];
   
@@ -418,6 +418,13 @@ function setCategory(cat) {
     } else if (c !== "position") {   // ignore old 'position' markers
       normalCats.push(c);
     }
+  });
+  
+  // Sort posCats according to the order in positions.txt
+  posCats.sort((a, b) => {
+    const iA = positions.indexOf(a);
+    const iB = positions.indexOf(b);
+    return iA - iB;
   });
   
   // Combine with 'position' separator if there are any positions selected
@@ -439,7 +446,6 @@ function setCategory(cat) {
   
   // Update button highlights only
   renderCategoryButtons();
-
 
 }
 
