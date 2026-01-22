@@ -368,7 +368,7 @@ async function showMedia() {
     document.getElementById("timelineContainer").style.display = "none";
     container.innerHTML = `<h3>${name}</h3>
       <img src="${url}" alt="${name}" onerror="this.style.display='none'">
-      <p>Category: ${catsField || "(none)"}</p>`;
+      <p>Category: ${cat || "(none)"}</p>`;
   } else {
     document.getElementById("timelineContainer").style.display = "none";
     container.innerHTML = `<h3>${name}</h3><p>Unsupported media: ${url}</p>`;
