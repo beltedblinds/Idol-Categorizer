@@ -217,7 +217,15 @@ function renderCategoryButtons() {
   const currentCats = catsField ? catsField.split(",").map(x => x.trim()).filter(Boolean) : [];
 
 
-  categories.forEach(cat => {
+  // Decide which range of categories to show
+  let displayCats = [];
+  if (cat10or11Only) {
+    displayCats = categories.slice(12, 18); // show categories 13–18
+  } else {
+    displayCats = categories.slice(0, 12);  // show categories 1–12
+  }
+  
+  displayCats.forEach(cat => {
     const btn = document.createElement("button");
     btn.textContent = cat;
     btn.classList.toggle("active", currentCats.includes(cat));
