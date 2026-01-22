@@ -625,10 +625,15 @@ function renderCatalog(filter = "") {
     div.appendChild(caption);
 
     div.onclick = () => {
-      currentIndex = item.idx;
-      showMedia();
-      catalogModal.style.display = "none";
+      const list = filteredLines(); // use the same filtered list as showMedia()
+      const filteredIndex = list.findIndex(obj => obj.idx === item.idx);
+      if (filteredIndex >= 0) {
+        currentIndex = filteredIndex;
+        showMedia();
+        catalogModal.style.display = "none";
+      }
     };
+
 
     catalogGrid.appendChild(div);
   });
