@@ -427,8 +427,8 @@ function setCategory(cat) {
 document.getElementById("toggleCatView").onclick = (e) => {
   showPositionCats = !showPositionCats;
   e.target.textContent = showPositionCats
-    ? "Show Main Categories"
-    : "Show Position Categories";
+    ? "Toggle Categories"
+    : "Toggle Categories";
 
   renderCategoryButtons();
 };
