@@ -75,6 +75,7 @@
            style="width:120px; accent-color:#28a745;">
     
     <button id="cat10or11">Show Only Positions</button>
+    <button id="toggleCatView">Show Position Categories</button>
     <button id="uncatOnly">Show Only Uncategorized</button>
     <button id="save">💾 Save Categorized File</button>
   </div>
@@ -132,6 +133,8 @@ let urls = [];            // array of video URLs for multipart videos
 
 let cat10or11Only = false;
 let cachedCat10or11List = null;
+let showPositionCats = false; // controls category button set ONLY
+
 
 async function preloadVideoDurations(urls) {
   const durations = [];
@@ -217,13 +220,11 @@ function renderCategoryButtons() {
   const currentCats = catsField ? catsField.split(",").map(x => x.trim()).filter(Boolean) : [];
 
 
-  // Decide which range of categories to show
-  let displayCats = [];
-  if (cat10or11Only) {
-    displayCats = categories.slice(12, 18); // show categories 13–18
-  } else {
-    displayCats = categories.slice(0, 12);  // show categories 1–12
-  }
+  // Decide which range of categories to show (MANUAL)
+  let displayCats = showPositionCats
+    ? categories.slice(12, 18) // positions
+    : categories.slice(0, 12); // main categories
+
   
   displayCats.forEach(cat => {
     const btn = document.createElement("button");
@@ -423,6 +424,14 @@ function setCategory(cat) {
 
 }
 
+document.getElementById("toggleCatView").onclick = (e) => {
+  showPositionCats = !showPositionCats;
+  e.target.textContent = showPositionCats
+    ? "Show Main Categories"
+    : "Show Position Categories";
+
+  renderCategoryButtons();
+};
 
 
 document.getElementById("skip").onclick = () => { currentIndex++; showMedia(); };
