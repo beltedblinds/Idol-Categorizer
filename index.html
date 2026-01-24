@@ -473,9 +473,12 @@ document.getElementById("cat10or11").onclick = e => {
   cachedCat10or11List = cat10or11Only
     ? allLines.map((line, idx) => ({ line, idx })).filter(obj => {
         const parts = obj.line.split(",").map(x => x.trim());
-        const cats = parts[3]
-          ? parts[3].split(",").map(c => c.trim())
+
+        // Everything AFTER index 2 is categories
+        const cats = parts.length > 3
+          ? parts.slice(3).map(c => c.trim())
           : [];
+      
         return cats.includes(cat10) || cats.includes(cat11);
       })
     : null;
