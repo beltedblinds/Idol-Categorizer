@@ -75,14 +75,16 @@
            style="width:120px; accent-color:#28a745;">
     
     <button id="cat10or11">Show Only Positions</button>
+    <button id="positionsNoExtra">Positions Only (No 13–18)</button>
     <button id="toggleCatView">Toggle Categories</button>
     <button id="uncatOnly">Show Only Uncategorized</button>
-    <button id="save">💾 Save Categorized File</button>
+    
   </div>
 
   <!-- Catalog Button -->
   <div class="controls">
     <button id="catalogBtn">📂 Catalog</button>
+    <button id="save">💾 Save Categorized File</button>
   </div>
   
   <!-- Catalog Modal -->
@@ -134,6 +136,9 @@ let urls = [];            // array of video URLs for multipart videos
 let cat10or11Only = false;
 let cachedCat10or11List = null;
 let showPositionCats = false; // controls category button set ONLY
+
+let positionsNoExtraOnly = false;
+let cachedPositionsNoExtraList = null;
 
 
 async function preloadVideoDurations(urls) {
@@ -240,6 +245,7 @@ function renderCategoryButtons() {
 
 function filteredLines() {
   if (uncategorizedOnly) return cachedUncatList || [];
+  if (positionsNoExtraOnly) return cachedPositionsNoExtraList || [];
   if (cat10or11Only) return cachedCat10or11List || [];
   return allLines.map((line, idx) => ({ line, idx }));
 }
@@ -486,6 +492,48 @@ document.getElementById("cat10or11").onclick = e => {
   currentIndex = 0;
   showMedia();
 };
+
+document.getElementById("positionsNoExtra").onclick = e => {
+  positionsNoExtraOnly = !positionsNoExtraOnly;
+
+  // Disable other filters
+  cat10or11Only = false;
+  uncategorizedOnly = false;
+
+  // Button visuals
+  e.target.classList.toggle("active", positionsNoExtraOnly);
+  document.getElementById("cat10or11").classList.remove("active");
+  document.getElementById("uncatOnly").classList.remove("active");
+
+  const cat10 = categories[9];
+  const cat11 = categories[10];
+
+  // Categories 13–18 (indexes 12–17)
+  const excludedCats = categories.slice(12, 18);
+
+  cachedPositionsNoExtraList = positionsNoExtraOnly
+    ? allLines.map((line, idx) => ({ line, idx })).filter(obj => {
+        const parts = obj.line.split(",").map(x => x.trim());
+
+        // ALL categories, regardless of order
+        const cats = parts.length > 3
+          ? parts.slice(3)
+          : [];
+
+        const hasPosition =
+          cats.includes(cat10) || cats.includes(cat11);
+
+        const hasExcluded =
+          cats.some(c => excludedCats.includes(c));
+
+        return hasPosition && !hasExcluded;
+      })
+    : null;
+
+  currentIndex = 0;
+  showMedia();
+};
+
 
 
 // Switch sources
