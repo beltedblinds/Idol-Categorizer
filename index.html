@@ -577,6 +577,9 @@ document.addEventListener("keydown", (e) => {
     // Left arrow → Previous
     currentIndex--;
     showMedia();
+  } else if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") {
+    // Toggle category view
+    document.getElementById("toggleCatView").click();
   }
 });
 
